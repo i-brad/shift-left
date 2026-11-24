@@ -1,0 +1,72 @@
+/* Shift Left UI kit. Light mode only. */
+:root {
+  color-scheme: light;
+  --sl-paper: #f4efe6;
+  --sl-card: #fbf8f2;
+  --sl-ink: #1f1e1b;
+  --sl-mute: #6f685c;
+  --sl-soft: #e3dccf;
+  --sl-grid: #e8e0d2;
+  --sl-lavender: #e6ddfa;
+  --sl-lavender-deep: #cdbff3;
+  --sl-sky: #d9e7fb;
+  --sl-sage: #dcefd0;
+  --sl-rose: #f9d6d6;
+  --sl-rose-ink: #8f1d17;
+  --sl-pink: #fbe0e5;
+  --sl-butter: #fbe8b8;
+  --sl-request: #ef9f55;
+  --sl-font: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sl-focus: #7b61e8;
+}
+*, *::before, *::after { box-sizing: border-box; min-width: 0; }
+body { margin: 0; background: var(--sl-paper); color: var(--sl-ink); font: 15.5px/1.6 var(--sl-font); }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--sl-focus); outline-offset: 2px; }
+
+.sl-btn { border: 1.5px solid var(--sl-ink); background: var(--sl-card); border-radius: 8px; padding: 8px 14px; min-height: 42px; cursor: pointer; font-size: 14px; }
+.sl-btn--primary { background: var(--sl-lavender); font-weight: 700; box-shadow: 2px 2px 0 var(--sl-ink); }
+.sl-btn--primary:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--sl-ink); }
+.sl-btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+
+.sl-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; border: 1.5px solid var(--sl-ink); border-radius: 8px; padding: 1px 10px; background: var(--sl-card); }
+.sl-chip[data-tone='good'] { background: var(--sl-sage); }
+.sl-chip[data-tone='bad'] { background: var(--sl-rose); color: var(--sl-rose-ink); }
+.sl-chip[data-tone='you'] { background: var(--sl-lavender); }
+.sl-chip[data-tone='system'] { background: var(--sl-sky); }
+.sl-chip[data-tone='hint'] { background: var(--sl-butter); }
+
+.sl-metric { border: 1.5px solid var(--sl-soft); border-radius: 10px; padding: 7px 12px; background: var(--sl-paper); }
+.sl-metric dt { font-size: 11.5px; color: var(--sl-mute); text-transform: uppercase; }
+.sl-metric dd { margin: 0; font-size: 18px; font-weight: 700; white-space: nowrap; }
+.sl-metric[data-tone='good'] { background: var(--sl-sage); border-color: #79b263; }
+.sl-metric[data-tone='bad'] { background: var(--sl-rose); border-color: #d96a6a; }
+.sl-metric[data-tone='bad'] dd { color: var(--sl-rose-ink); }
+
+.sl-callout { border: 1.5px solid var(--sl-soft); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; margin: 10px 0; }
+.sl-callout b { display: block; font-size: 11.5px; text-transform: uppercase; margin-bottom: 2px; }
+.sl-callout[data-kind='key'] { background: var(--sl-lavender); }
+.sl-callout[data-kind='watch'] { background: var(--sl-rose); }
+.sl-callout[data-kind='try'] { background: var(--sl-butter); }
+.sl-callout[data-kind='goal'] { background: var(--sl-card); border: 1.5px dashed var(--sl-ink); }
+
+.sl-rail { display: flex; justify-content: space-between; overflow-x: auto; padding: 0 0 4px; margin: 0; list-style: none; }
+.sl-rail li { flex: 1 0 74px; }
+.sl-rail button { border: 0; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; color: var(--sl-mute); width: 100%; padding: 4px 0; position: relative; }
+.sl-rail button::before { content: ''; position: absolute; top: 19px; left: 0; right: 0; height: 1.5px; background: var(--sl-soft); }
+.sl-rail li:first-child button::before { left: 50%; }
+.sl-rail li:last-child button::before { right: 50%; }
+.sl-rail i { position: relative; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--sl-soft); display: grid; place-items: center; font-style: normal; font-size: 12.5px; background: var(--sl-card); }
+.sl-rail [data-state='done'] i { border-color: var(--sl-ink); }
+.sl-rail [data-state='current'] { color: var(--sl-ink); font-weight: 700; }
+.sl-rail [data-state='current'] i { background: var(--sl-lavender); border-color: var(--sl-ink); box-shadow: 2px 2px 0 var(--sl-ink); }
+
+.sl-progress { height: 8px; background: var(--sl-soft); border-radius: 9px; overflow: hidden; }
+.sl-progress > span { display: block; height: 100%; background: var(--sl-lavender-deep); transition: width .4s; }
+
+.sl-toggle { display: inline-flex; border: 1.5px solid var(--sl-ink); border-radius: 8px; overflow: hidden; }
+.sl-toggle button { border: 0; background: var(--sl-card); padding: 6px 12px; min-height: 38px; cursor: pointer; font-weight: 700; }
+.sl-toggle button + button { border-left: 1.5px solid var(--sl-ink); }
+.sl-toggle button[aria-pressed='true'] { background: var(--sl-lavender); }
+
+@media (prefers-reduced-motion: reduce) { .sl-progress > span { transition: none; } }

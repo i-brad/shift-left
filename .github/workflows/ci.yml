@@ -1,0 +1,32 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm --filter site exec playwright install --with-deps chromium
+      - run: pnpm e2e
+        env:
+          CI: 'true'
+      - name: Exercise solution catches the planted bug
+        run: |
+          if pnpm exercise 02-boundaries --solution; then echo "Solution should fail with the bug on"; exit 1; fi
+          pnpm exercise 02-boundaries --solution --fixed
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: '**/test-results/**'

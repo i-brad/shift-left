@@ -1,0 +1,38 @@
+{
+  "name": "kudi",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c magenta,cyan \"pnpm dev:api\" \"pnpm dev:web\"",
+    "dev:api": "tsx watch src/server/main.ts",
+    "dev:web": "vite",
+    "start:api": "tsx src/server/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p .",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.11",
+    "@shift-left/ui": "workspace:*",
+    "hono": "^4.13.21",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "@testing-library/jest-dom": "^8.0.0",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.13",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "concurrently": "^10.0.7",
+    "jsdom": "^31.0.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.8",
+    "vitest": "^3.2.7"
+  }
+}

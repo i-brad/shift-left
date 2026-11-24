@@ -1,0 +1,25 @@
+.kudi-top { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-bottom: 1.5px solid var(--sl-soft); }
+.logo { font-weight: 800; font-size: 22px; background: var(--sl-sky); border: 1.5px solid var(--sl-ink); border-radius: 8px; padding: 0 10px; box-shadow: 2px 2px 0 var(--sl-ink); }
+.kudi { max-width: 980px; margin: 24px auto; padding: 0 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: start; }
+.card { border: 1.5px solid var(--sl-ink); border-radius: 14px; padding: 18px; background: var(--sl-card); display: grid; gap: 12px; }
+.card h1, .card h2 { margin: 0; font-size: 20px; }
+.login { grid-column: 1 / -1; max-width: 420px; justify-self: center; width: 100%; }
+.hint { margin: 0; color: var(--sl-mute); font-size: 13px; }
+.big { margin: 0; font-size: 32px; font-weight: 800; }
+.field { display: grid; gap: 4px; }
+.field label { font-size: 13px; font-weight: 700; }
+.field input, .amount { border: 1.5px solid var(--sl-ink); border-radius: 8px; background: var(--sl-paper); font-size: 16px; }
+.field > input { padding: 9px 10px; }
+.amount { display: flex; overflow: hidden; }
+.amount span { padding: 9px 10px; border-right: 1.5px solid var(--sl-soft); }
+.amount input { border: 0; outline: 0; background: none; padding: 9px 10px; width: 100%; font-size: 16px; }
+.amount:focus-within { outline: 3px solid var(--sl-focus); outline-offset: 2px; }
+[aria-invalid='true'], .amount:has([aria-invalid='true']) { border-color: #c0392b; }
+.field-error, .error-banner { margin: 0; color: var(--sl-rose-ink); font-size: 13px; font-weight: 700; }
+.error-banner { background: var(--sl-rose); border-radius: 8px; padding: 8px 10px; }
+.success { margin: 0; background: var(--sl-sage); border-radius: 8px; padding: 8px 10px; font-size: 13.5px; font-weight: 700; }
+.history ul { list-style: none; margin: 0; padding: 0; }
+.history li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1.5px solid var(--sl-soft); font-size: 13.5px; }
+.history b.out { color: var(--sl-rose-ink); }
+.history b.in { color: #2e5e22; }
+.history li span { overflow-wrap: anywhere; }

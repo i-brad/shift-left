@@ -1,0 +1,21 @@
+{
+  "name": "shift-left",
+  "private": true,
+  "packageManager": "pnpm@12.23.0",
+  "scripts": {
+    "dev": "turbo run dev --filter=site",
+    "kudi": "pnpm --filter kudi dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "e2e": "turbo run e2e",
+    "exercise": "node scripts/exercise.mjs"
+  },
+  "devDependencies": {
+    "turbo": "^2.11.13",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}

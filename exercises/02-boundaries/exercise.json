@@ -1,0 +1,6 @@
+{
+  "title": "02 · Boundaries: test the transfer limits",
+  "lesson": "partitions-boundaries",
+  "bug": "limit-exclusive",
+  "ctfl": ["FL-4.2.1", "FL-4.2.2"]
+}
