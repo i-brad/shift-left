@@ -154,7 +154,8 @@ th { font-size: 11.5px; text-transform: uppercase; color: var(--sl-mute); }
 .card-buttons span { font-size: 13px; margin-right: 4px; }
 .switches .sl-toggle button { font-size: 13px; padding: 6px 10px; }
 
-.controls-board, .controls-coverage { display: block; }
+.controls-board, .controls-coverage, .controls-pipeline { display: block; }
+.pipe-ctl { display: grid; gap: 8px; }
 .board-title { margin: 0 0 8px; font-weight: 700; font-size: 14px; }
 .board-items { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 .board-items li { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px; border-radius: 10px; }

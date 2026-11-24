@@ -3,3 +3,4 @@ export * from './fees';
 export * from './card';
 export * from './board';
 export * from './coverage';
+export * from './pipeline';

@@ -22,7 +22,8 @@ export type GoalCheck =
   | { kind: 'fee-fails' }
   | { kind: 'card-wrong'; id: string }
   | { kind: 'board-complete'; board: string }
-  | { kind: 'cov-fails' };
+  | { kind: 'cov-fails' }
+  | { kind: 'pipeline-target'; pipeline: string; maxEscaped?: number; maxCost?: number; maxSeconds?: number };
 
 export type BoundaryScene = {
   kind: 'boundaries';
@@ -82,7 +83,16 @@ export type CoverageScene = {
   ci?: boolean;
 };
 
-export type SceneState = BoundaryScene | FeeScene | CardScene | BoardScene | CoverageScene;
+export type PipelineScene = {
+  kind: 'pipeline';
+  /** Key into the lesson's `pipelines`. */
+  pipeline: string;
+  /** Checks switched on. 'learner' = the learner chooses, starting from `start`. */
+  enabled: readonly string[] | 'learner';
+  start?: readonly string[];
+};
+
+export type SceneState = BoundaryScene | FeeScene | CardScene | BoardScene | CoverageScene | PipelineScene;
 export type SceneKind = SceneState['kind'];
 
 export type Step = {
@@ -137,6 +147,8 @@ export type Lesson = {
   exercise?: string;
   /** Board activities used by `board` scenes, by key. */
   boards?: Record<string, import('@shift-left/sim').BoardDef>;
+  /** Pipelines used by `pipeline` scenes, by key. */
+  pipelines?: Record<string, import('@shift-left/sim').PipelineDef>;
   /** End-of-lesson questions. */
   check: CheckQuestion[];
   /** How to use this on a real product team tomorrow. */

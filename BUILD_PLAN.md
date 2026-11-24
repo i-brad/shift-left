@@ -20,7 +20,7 @@ The checklist for finishing the course. Work top to bottom; tick a lesson only w
 | `card` ✅ | Walk a 3D state map, fix the unfreeze check | State transitions |
 | `board` ✅ | Select / classify tiles on a 3D board (findings, criteria, report fields, risks, review comments) | Exploratory, Acceptance criteria, Defect reports, Reviews, Risk-based, Planning, Errors/defects/failures, Why we test |
 | `coverage` ✅ | Pick test inputs; 3D code paths light up; statement vs branch % | Statement and branch coverage |
-| `pipeline` | Place checks on a conveyor of stages; see where a bug is caught and what it costs | Test levels, Confirmation vs regression, PR checks, Reports, Secrets, Parallel runs |
+| `pipeline` ✅ | Place checks on a conveyor of stages; see where a bug is caught and what it costs | Test levels, Confirmation vs regression, PR checks, Reports, Secrets, Parallel runs |
 | `request` | Edit method, path, headers, body; see the response; toggle assertions | HTTP, Asserting responses, Authn vs authz, Negative tests, OWASP, Pact |
 | `timing` | Turn a latency dial; tests wait, sleep or retry on a timeline | Waiting, Flaky tests, Load testing (k6) |
 | `page` | Redesign a 3D page; locators hold or snap | Locators, Fixtures and isolation, Traces, Structure, Test data, Maestro |
@@ -30,13 +30,13 @@ The checklist for finishing the course. Work top to bottom; tick a lesson only w
 ### Module 1 · Foundations
 | | Lesson | CTFL | Scene | Kudi feature / bug | Exercise |
 | --- | --- | --- | --- | --- | --- |
-| [ ] | Why we test | FL-1.1 | board | — | — |
-| [ ] | Errors, defects, failures | FL-1.2 | board | — | — |
-| [ ] | Test levels and types | FL-2.2 | pipeline | — | — |
-| [ ] | Confirmation vs regression | FL-2.2 | pipeline | — | — |
-| [ ] | Reviews and static testing | FL-3.1, 3.2 | board | — | — |
-| [ ] | Risk-based testing | FL-5.2 | board | — | — |
-| [ ] | Planning, estimation, reporting | FL-5.1, 5.3, 5.4 | board | — | — |
+| [x] | Why we test | FL-1.1 | board | — | — |
+| [x] | Errors, defects, failures | FL-1.2 | board | — | — |
+| [x] | Test levels and types | FL-2.2 | pipeline | — | — |
+| [x] | Confirmation vs regression | FL-2.2 | pipeline | — | — |
+| [x] | Reviews and static testing | FL-3.1, 3.2 | board | — | — |
+| [x] | Risk-based testing | FL-5.2 | board | — | — |
+| [x] | Planning, estimation, reporting | FL-5.1, 5.3, 5.4 | board | — | — |
 
 ### Module 2 · Test design
 | | Lesson | CTFL | Scene | Kudi feature / bug | Exercise |

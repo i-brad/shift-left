@@ -115,6 +115,7 @@ describe('every built lesson', () => {
         for (const s of lesson.steps) {
           expect(s.scene.kind).toBe(lesson.scene);
           if (s.scene.kind === 'board') expect(lesson.boards?.[s.scene.board], s.scene.board).toBeDefined();
+          if (s.scene.kind === 'pipeline') expect(lesson.pipelines?.[s.scene.pipeline], s.scene.pipeline).toBeDefined();
           if (s.predict) expect(s.predict.options.map((o) => o.id)).toContain(s.predict.answer);
         }
         for (const l of lesson.learn) expect(lesson.steps[l.afterStep]).toBeDefined();
@@ -183,7 +184,7 @@ describe('State transitions', () => {
 });
 
 describe('board lessons', () => {
-  for (const lesson of [exploratory, acceptanceCriteria, defectReports]) {
+  for (const lesson of Object.values(lessons).filter((l) => l.scene === 'board')) {
     it(`${lesson.title}: every board goal is reachable with the right answers and not with none`, () => {
       for (const s of lesson.steps.filter((x) => x.goal?.check.kind === 'board-complete')) {
         const id = (s.goal!.check as { board: string }).board;
@@ -224,4 +225,17 @@ describe('Statement and branch coverage', () => {
     expect(cov('root-cause').goalMet).toBe(false);
     expect(cov('root-cause', { covFixed: true }).goalMet).toBe(true);
   });
+});
+
+describe('pipeline lessons', () => {
+  for (const lesson of Object.values(lessons).filter((l) => l.scene === 'pipeline')) {
+    it(`${lesson.title}: learner goals are reachable by switching everything on, not with nothing`, () => {
+      for (const s of lesson.steps.filter((x) => x.goal?.check.kind === 'pipeline-target')) {
+        const id = (s.goal!.check as { pipeline: string }).pipeline;
+        const all = lesson.pipelines![id]!.stages.map((st) => st.id);
+        expect(evaluateStep(s, learner({ pipes: { [id]: [] } }), lesson).goalMet).toBe(false);
+        expect(evaluateStep(s, learner({ pipes: { [id]: all } }), lesson).goalMet).toBe(true);
+      }
+    });
+  }
 });

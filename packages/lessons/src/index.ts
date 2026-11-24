@@ -7,11 +7,20 @@ import { coverage } from './lessons/coverage';
 import { decisionTables } from './lessons/decision-tables';
 import { defectReports } from './lessons/defect-reports';
 import { exploratory } from './lessons/exploratory';
+import { errorsDefectsFailures, testLevels, whyWeTest } from './lessons/module-1a';
+import { confirmationRegression, planningReporting, reviewsStatic, riskBased } from './lessons/module-1b';
 import { partitionsBoundaries } from './lessons/partitions-boundaries';
 import { stateTransitions } from './lessons/state-transitions';
 import type { Lesson } from './types';
 
 export const lessons: Record<string, Lesson> = {
+  [whyWeTest.id]: whyWeTest,
+  [errorsDefectsFailures.id]: errorsDefectsFailures,
+  [testLevels.id]: testLevels,
+  [confirmationRegression.id]: confirmationRegression,
+  [reviewsStatic.id]: reviewsStatic,
+  [riskBased.id]: riskBased,
+  [planningReporting.id]: planningReporting,
   [partitionsBoundaries.id]: partitionsBoundaries,
   [decisionTables.id]: decisionTables,
   [stateTransitions.id]: stateTransitions,
@@ -21,4 +30,5 @@ export const lessons: Record<string, Lesson> = {
   [defectReports.id]: defectReports,
 };
 
+export { whyWeTest, errorsDefectsFailures, testLevels, confirmationRegression, reviewsStatic, riskBased, planningReporting };
 export { acceptanceCriteria, coverage, decisionTables, defectReports, exploratory, partitionsBoundaries, stateTransitions };

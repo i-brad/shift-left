@@ -85,4 +85,4 @@ A new **kind** of scene needs: a pure simulation in `packages/sim`, an evaluator
 
 ## Status
 
-Phase 1 in progress: 3 playable lessons (Partitions and boundaries, Decision tables, State transitions), each with a Kudi feature, a planted bug and an exercise. Next: the rest of Module 2, then Module 1.
+Modules 1 and 2 complete (14 lessons). See BUILD_PLAN.md for the rest.

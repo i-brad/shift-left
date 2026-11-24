@@ -8,6 +8,7 @@ import { CardScene } from './CardScene';
 import { FeeScene } from './FeeScene';
 import { BoardScene } from './BoardScene';
 import { CoverageScene } from './CoverageScene';
+import { PipelineScene } from './PipelineScene';
 
 const naira = (v: number) => `${v < 0 ? '-' : ''}₦${Math.abs(v).toLocaleString('en-NG')}`;
 
@@ -19,6 +20,7 @@ export function SceneView({ ev, scene, reducedMotion, hideResults }: { ev: StepE
   if (ev.kind === 'boundaries' && scene.kind === 'boundaries') return <BoundaryScene evalState={ev} scene={scene} reducedMotion={reducedMotion} hideResults={hideResults} />;
   if (ev.kind === 'fees' && scene.kind === 'fees') return <FeeScene evalState={ev} scene={scene} reducedMotion={reducedMotion} hideResults={hideResults} />;
   if (ev.kind === 'card' && scene.kind === 'card') return <CardScene evalState={ev} scene={scene} reducedMotion={reducedMotion} hideResults={hideResults} />;
+  if (ev.kind === 'pipeline') return <PipelineScene evalState={ev} reducedMotion={reducedMotion} />;
   if (ev.kind === 'board') return <BoardScene evalState={ev} reducedMotion={reducedMotion} />;
   if (ev.kind === 'coverage' && scene.kind === 'coverage') return <CoverageScene evalState={ev} scene={scene} reducedMotion={reducedMotion} />;
   return null;
@@ -57,6 +59,15 @@ export function metricsFor(ev: StepEval, predicted: boolean): MetricSpec[] {
         { label: 'Score', value: ev.checked ? `${m.score}%` : '?', tone: ev.checked && m.complete ? 'good' : 'neutral' },
       ];
     }
+    case 'pipeline': {
+      const m = ev.run.metrics;
+      return [
+        { label: 'Caught', value: `${m.caught} / ${m.defects}`, tone: m.escaped === 0 ? 'good' : 'neutral' },
+        { label: 'Reached customers', value: m.escaped, tone: m.escaped > 0 ? 'bad' : 'good' },
+        { label: 'Cost to fix', value: naira(m.cost), tone: 'neutral' },
+        { label: 'Run time', value: `${m.seconds} s`, tone: 'neutral' },
+      ];
+    }
     case 'coverage': {
       const m = ev.run.metrics;
       return [
@@ -88,6 +99,7 @@ export function legendFor(kind: StepEval['kind']): LegendItem[] {
   ];
   if (kind === 'boundaries')
     return [...base, { label: 'should be rejected', color: 'var(--sl-pink)' }, { label: 'should be accepted', color: 'var(--sl-sky)' }, { label: 'request', color: 'var(--sl-request)', round: true }];
+  if (kind === 'pipeline') return [{ label: 'check on', color: 'var(--sl-sky)' }, { label: 'check off', color: '#fffaf1' }, { label: 'defect caught', color: 'var(--sl-sage)' }, { label: 'reached customers', color: 'var(--sl-rose)' }];
   if (kind === 'board') return [{ label: 'picked', color: 'var(--sl-lavender)' }, { label: 'right', color: 'var(--sl-sage)' }, { label: 'wrong', color: 'var(--sl-rose)' }, { label: 'missed', color: 'var(--sl-pink)' }];
   if (kind === 'coverage') return [{ label: 'line ran', color: 'var(--sl-sage)' }, { label: 'decision ran', color: 'var(--sl-butter)' }, { label: 'never ran', color: '#fffaf1' }, { label: 'wrong result', color: 'var(--sl-rose)' }];
   if (kind === 'fees') return [...base, { label: 'not tested yet', color: '#fffaf1' }, { label: 'fee charged', color: 'var(--sl-butter)' }];
@@ -109,7 +121,47 @@ export function SceneControls(props: ControlsProps) {
       return <BoardControls {...props} />;
     case 'coverage':
       return <CoverageControls {...props} />;
+    case 'pipeline':
+      return <PipelineControls {...props} />;
   }
+}
+
+function PipelineControls({ ev, setLearner }: ControlsProps) {
+  if (ev.kind !== 'pipeline') return null;
+  const { def, enabled, learnerControls, run, pipelineId } = ev;
+  const on = new Set(enabled);
+  const toggle = (id: string) =>
+    setLearner((l) => {
+      const cur = new Set(l.pipes[pipelineId] ?? enabled);
+      if (cur.has(id)) cur.delete(id);
+      else cur.add(id);
+      return { ...l, pipes: { ...l.pipes, [pipelineId]: [...cur] } };
+    });
+  const stageLabel = new Map(def.stages.map((s) => [s.id, s.label]));
+  return (
+    <div className="pipe-ctl">
+      <p className="board-title">{def.title}</p>
+      {learnerControls && (
+        <div className="switches" role="group" aria-label="Checks">
+          {def.stages
+            .filter((s) => s.id !== def.end)
+            .map((s) => (
+              <button key={s.id} type="button" className="opt" aria-pressed={on.has(s.id)} onClick={() => toggle(s.id)}>
+                {on.has(s.id) ? '✓ ' : ''}
+                {s.label}
+              </button>
+            ))}
+        </div>
+      )}
+      <ul id="probe-result" className="cov-results" aria-live="polite">
+        {run.results.map((r) => (
+          <li key={r.id}>
+            {def.defects.find((d) => d.id === r.id)?.label}: <Chip tone={r.escaped ? 'bad' : 'good'}>{r.escaped ? 'reached customers' : `caught at ${stageLabel.get(r.caughtAt)}`}</Chip>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function BoardControls({ ev, learner, setLearner }: ControlsProps) {

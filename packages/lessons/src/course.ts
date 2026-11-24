@@ -7,13 +7,13 @@ import type { CourseModule } from './types';
 export const course: CourseModule[] = [
   {
     n: 1, title: 'Foundations', color: '#e2c79a', lessons: [
-      { id: 'why-we-test', title: 'Why we test', ctfl: ['FL-1.1'], built: false },
-      { id: 'errors-defects-failures', title: 'Errors, defects, failures', ctfl: ['FL-1.2'], built: false },
-      { id: 'test-levels', title: 'Test levels and types', ctfl: ['FL-2.2'], built: false },
-      { id: 'confirmation-regression', title: 'Confirmation vs regression', ctfl: ['FL-2.2'], built: false },
-      { id: 'reviews-static', title: 'Reviews and static testing', ctfl: ['FL-3.1', 'FL-3.2'], built: false },
-      { id: 'risk-based', title: 'Risk-based testing', ctfl: ['FL-5.2'], built: false },
-      { id: 'planning-reporting', title: 'Planning, estimation, reporting', ctfl: ['FL-5.1', 'FL-5.3', 'FL-5.4'], built: false },
+      { id: 'why-we-test', title: 'Why we test', ctfl: ['FL-1.1', 'FL-1.3'], built: true },
+      { id: 'errors-defects-failures', title: 'Errors, defects, failures', ctfl: ['FL-1.2'], built: true },
+      { id: 'test-levels', title: 'Test levels and types', ctfl: ['FL-2.2'], built: true },
+      { id: 'confirmation-regression', title: 'Confirmation vs regression', ctfl: ['FL-2.2'], built: true },
+      { id: 'reviews-static', title: 'Reviews and static testing', ctfl: ['FL-3.1', 'FL-3.2'], built: true },
+      { id: 'risk-based', title: 'Risk-based testing', ctfl: ['FL-5.2'], built: true },
+      { id: 'planning-reporting', title: 'Planning, estimation, reporting', ctfl: ['FL-5.1', 'FL-5.3', 'FL-5.4'], built: true },
     ],
   },
   {

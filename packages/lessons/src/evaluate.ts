@@ -15,6 +15,7 @@ import {
   runCard,
   runBoard,
   runCoverage,
+  runPipeline,
   runFees,
   specFee,
   specNext,
@@ -27,6 +28,8 @@ import {
   type BoardRun,
   type CovTest,
   type CoverageRun,
+  type PipelineDef,
+  type PipelineRun,
   type CardState,
   type FeeCombo,
   type FeeOrder,
@@ -36,7 +39,7 @@ import {
   type Tier,
   type Transition,
 } from '@shift-left/sim';
-import type { BoardScene, BoundaryScene, CardScene, CoverageScene, FeeScene, GoalCheck, Lesson, Step } from './types';
+import type { BoardScene, BoundaryScene, CardScene, CoverageScene, FeeScene, GoalCheck, Lesson, PipelineScene, Step } from './types';
 
 /** Everything the learner has done in the lesson. One shape for all scenes; each scene reads its part. */
 export type Learner = {
@@ -50,6 +53,8 @@ export type Learner = {
   boardChecked: Record<string, boolean>;
   covTests: CovTest[];
   covFixed: boolean;
+  /** pipelineId → enabled checks (only once the learner has touched it). */
+  pipes: Record<string, string[]>;
 };
 
 export const initialLearner = (): Learner => ({
@@ -63,6 +68,7 @@ export const initialLearner = (): Learner => ({
   boardChecked: {},
   covTests: [],
   covFixed: false,
+  pipes: {},
 });
 
 export type BoundaryEval = {
@@ -100,10 +106,14 @@ export type BoardEval = { kind: 'board'; boardId: string; def: BoardDef; run: Bo
 
 export type CoverageEval = { kind: 'coverage'; fixed: boolean; run: CoverageRun; escapedBugs: number; goalMet: boolean };
 
-export type StepEval = BoundaryEval | FeeEval | CardEval | BoardEval | CoverageEval;
+export type PipelineEval = { kind: 'pipeline'; pipelineId: string; def: PipelineDef; enabled: string[]; learnerControls: boolean; run: PipelineRun; escapedBugs: number; goalMet: boolean };
 
-export function evaluateStep(step: Step, learner: Learner, lesson?: Pick<Lesson, 'boards'>): StepEval {
+export type StepEval = BoundaryEval | FeeEval | CardEval | BoardEval | CoverageEval | PipelineEval;
+
+export function evaluateStep(step: Step, learner: Learner, lesson?: Pick<Lesson, 'boards' | 'pipelines'>): StepEval {
   switch (step.scene.kind) {
+    case 'pipeline':
+      return evalPipeline(step, step.scene, learner, lesson);
     case 'board':
       return evalBoard(step, step.scene, learner, lesson);
     case 'coverage':
@@ -174,7 +184,17 @@ function evalCoverage(step: Step, scene: CoverageScene, learner: Learner): Cover
   return { kind: 'coverage', fixed, run: result, escapedBugs, goalMet };
 }
 
-type GoalFacts = { allPass: boolean; probe?: ProbeResult | null; feeYouFails?: boolean; cardWrong?: Set<string>; boardDone?: Record<string, boolean>; covFails?: boolean };
+function evalPipeline(step: Step, scene: PipelineScene, learner: Learner, lesson?: Pick<Lesson, 'pipelines'>): PipelineEval {
+  const def = lesson?.pipelines?.[scene.pipeline];
+  if (!def) throw new Error(`Unknown pipeline "${scene.pipeline}"`);
+  const learnerControls = scene.enabled === 'learner';
+  const enabled = learnerControls ? (learner.pipes[scene.pipeline] ?? [...(scene.start ?? [])]) : [...(scene.enabled as readonly string[])];
+  const result = runPipeline(def, enabled);
+  const goalMet = !step.goal || checkGoal(step.goal.check, { allPass: result.metrics.escaped === 0, pipeline: { id: scene.pipeline, m: result.metrics } });
+  return { kind: 'pipeline', pipelineId: scene.pipeline, def, enabled, learnerControls, run: result, escapedBugs: result.metrics.escaped, goalMet };
+}
+
+type GoalFacts = { allPass: boolean; probe?: ProbeResult | null; feeYouFails?: boolean; cardWrong?: Set<string>; boardDone?: Record<string, boolean>; covFails?: boolean; pipeline?: { id: string; m: PipelineRun['metrics'] } };
 
 export function checkGoal(check: GoalCheck, f: GoalFacts): boolean {
   switch (check.kind) {
@@ -190,6 +210,11 @@ export function checkGoal(check: GoalCheck, f: GoalFacts): boolean {
       return !!f.boardDone?.[check.board];
     case 'cov-fails':
       return !!f.covFails;
+    case 'pipeline-target': {
+      if (!f.pipeline || f.pipeline.id !== check.pipeline) return false;
+      const m = f.pipeline.m;
+      return (check.maxEscaped === undefined || m.escaped <= check.maxEscaped) && (check.maxCost === undefined || m.cost <= check.maxCost) && (check.maxSeconds === undefined || m.seconds <= check.maxSeconds);
+    }
   }
 }
 

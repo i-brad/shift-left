@@ -44,3 +44,33 @@ describe('coverage', () => {
     expect(r.results.map((x) => x.actual)).toEqual([0, 0, 50, 4000]);
   });
 });
+
+import { runPipeline, type PipelineDef } from './pipeline';
+
+const P: PipelineDef = {
+  title: 't',
+  end: 'prod',
+  stages: [
+    { id: 'unit', label: 'Unit', cost: 1, seconds: 1 },
+    { id: 'ui', label: 'UI', cost: 10, seconds: 60 },
+    { id: 'prod', label: 'Production', cost: 1000, seconds: 0 },
+  ],
+  defects: [
+    { id: 'a', label: 'A', origin: 'unit', caughtBy: ['unit', 'ui'] },
+    { id: 'b', label: 'B', origin: 'unit', caughtBy: ['ui'] },
+  ],
+};
+
+describe('pipeline', () => {
+  it('everything escapes with no checks', () => {
+    expect(runPipeline(P, []).metrics).toMatchObject({ escaped: 2, cost: 2000, seconds: 0 });
+  });
+  it('the earliest enabled stage that can detect a defect catches it', () => {
+    const r = runPipeline(P, ['unit', 'ui']);
+    expect(r.results.map((x) => x.caughtAt)).toEqual(['unit', 'ui']);
+    expect(r.metrics).toMatchObject({ escaped: 0, cost: 11, seconds: 61 });
+  });
+  it('the end stage cannot be switched on as a check', () => {
+    expect(runPipeline(P, ['prod']).metrics.escaped).toBe(2);
+  });
+});
