@@ -69,6 +69,18 @@ The fee depends on the sender's tier, the amount, and whether the transfer is ex
 
 `GET /api/fees?amount=<number>&express=<true|false>` → `{ "fee" }` for the signed-in user, without moving money. The amount is validated as in *Sending money*.
 
+## Cashback
+
+Customers earn cashback on transfers, by tier.
+
+| Tier | Amount | Cashback |
+| --- | --- | --- |
+| Basic | any | ₦0 |
+| Plus | up to ₦100,000 | 1%, rounded to the nearest naira |
+| Plus | over ₦100,000 | 2%, rounded to the nearest naira |
+
+`GET /api/cashback?amount=<number>` → `{ "cashback" }` for the signed-in user. Amounts are validated as in *Sending money*. Cashback is always a whole number; it is never missing or `null`.
+
 ## Card
 
 A card is always **active**, **frozen** or **blocked**.

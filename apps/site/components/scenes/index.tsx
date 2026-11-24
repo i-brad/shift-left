@@ -6,6 +6,8 @@ import { useState, type FormEvent } from 'react';
 import { BoundaryScene } from './BoundaryScene';
 import { CardScene } from './CardScene';
 import { FeeScene } from './FeeScene';
+import { BoardScene } from './BoardScene';
+import { CoverageScene } from './CoverageScene';
 
 const naira = (v: number) => `${v < 0 ? '-' : ''}₦${Math.abs(v).toLocaleString('en-NG')}`;
 
@@ -17,6 +19,8 @@ export function SceneView({ ev, scene, reducedMotion, hideResults }: { ev: StepE
   if (ev.kind === 'boundaries' && scene.kind === 'boundaries') return <BoundaryScene evalState={ev} scene={scene} reducedMotion={reducedMotion} hideResults={hideResults} />;
   if (ev.kind === 'fees' && scene.kind === 'fees') return <FeeScene evalState={ev} scene={scene} reducedMotion={reducedMotion} hideResults={hideResults} />;
   if (ev.kind === 'card' && scene.kind === 'card') return <CardScene evalState={ev} scene={scene} reducedMotion={reducedMotion} hideResults={hideResults} />;
+  if (ev.kind === 'board') return <BoardScene evalState={ev} reducedMotion={reducedMotion} />;
+  if (ev.kind === 'coverage' && scene.kind === 'coverage') return <CoverageScene evalState={ev} scene={scene} reducedMotion={reducedMotion} />;
   return null;
 }
 
@@ -44,6 +48,25 @@ export function metricsFor(ev: StepEval, predicted: boolean): MetricSpec[] {
         escaped,
       ];
     }
+    case 'board': {
+      const m = ev.run.metrics;
+      return [
+        { label: 'Right', value: ev.checked ? `${m.right} / ${m.targets}` : '?', tone: ev.checked && m.complete ? 'good' : 'neutral' },
+        { label: 'Wrong', value: ev.checked ? m.wrong : '?', tone: ev.checked && m.wrong > 0 ? 'bad' : 'neutral' },
+        { label: 'Missed', value: ev.checked ? m.missed : '?', tone: ev.checked && m.missed > 0 ? 'bad' : 'neutral' },
+        { label: 'Score', value: ev.checked ? `${m.score}%` : '?', tone: ev.checked && m.complete ? 'good' : 'neutral' },
+      ];
+    }
+    case 'coverage': {
+      const m = ev.run.metrics;
+      return [
+        { label: 'Tests', value: m.tests, tone: failTone(m.failing) },
+        { label: 'Statements', value: `${m.statements} / 6`, tone: m.statementPct === 100 ? 'good' : 'neutral' },
+        { label: 'Branches', value: `${m.branchesCovered} / 4`, tone: m.branchPct === 100 ? 'good' : 'neutral' },
+        { label: 'Failing', value: m.failing, tone: failTone(m.failing) },
+        escaped,
+      ];
+    }
     case 'card': {
       const m = ev.run.metrics;
       return [
@@ -65,6 +88,8 @@ export function legendFor(kind: StepEval['kind']): LegendItem[] {
   ];
   if (kind === 'boundaries')
     return [...base, { label: 'should be rejected', color: 'var(--sl-pink)' }, { label: 'should be accepted', color: 'var(--sl-sky)' }, { label: 'request', color: 'var(--sl-request)', round: true }];
+  if (kind === 'board') return [{ label: 'picked', color: 'var(--sl-lavender)' }, { label: 'right', color: 'var(--sl-sage)' }, { label: 'wrong', color: 'var(--sl-rose)' }, { label: 'missed', color: 'var(--sl-pink)' }];
+  if (kind === 'coverage') return [{ label: 'line ran', color: 'var(--sl-sage)' }, { label: 'decision ran', color: 'var(--sl-butter)' }, { label: 'never ran', color: '#fffaf1' }, { label: 'wrong result', color: 'var(--sl-rose)' }];
   if (kind === 'fees') return [...base, { label: 'not tested yet', color: '#fffaf1' }, { label: 'fee charged', color: 'var(--sl-butter)' }];
   return [...base, { label: 'untested', color: '#fffdf8' }, { label: 'your card', color: 'var(--sl-butter)' }];
 }
@@ -80,7 +105,89 @@ export function SceneControls(props: ControlsProps) {
       return <FeeControls {...props} />;
     case 'card':
       return <CardControls {...props} />;
+    case 'board':
+      return <BoardControls {...props} />;
+    case 'coverage':
+      return <CoverageControls {...props} />;
   }
+}
+
+function BoardControls({ ev, learner, setLearner }: ControlsProps) {
+  if (ev.kind !== 'board') return null;
+  const { def, run, checked, boardId } = ev;
+  const picks = learner.board[boardId] ?? {};
+  const setPick = (id: string, v: string | undefined) =>
+    setLearner((l) => {
+      const cur = { ...(l.board[boardId] ?? {}) };
+      if (v === undefined) delete cur[id];
+      else cur[id] = v;
+      return { ...l, board: { ...l.board, [boardId]: cur }, boardChecked: { ...l.boardChecked, [boardId]: false } };
+    });
+  const status = new Map(run.results.map((r) => [r.id, r]));
+  return (
+    <div className="board-ctl">
+      <p className="board-title">{def.title}</p>
+      <ul className="board-items">
+        {def.items.map((it) => {
+          const r = status.get(it.id)!;
+          const mark = checked ? (r.status === 'right' ? 'right' : r.status === 'wrong' ? 'wrong' : r.status === 'missed' ? 'missed' : undefined) : undefined;
+          return (
+            <li key={it.id} data-result={mark}>
+              {def.mode === 'select' ? (
+                <button type="button" className="opt" aria-pressed={picks[it.id] === 'yes'} onClick={() => setPick(it.id, picks[it.id] === 'yes' ? undefined : 'yes')}>
+                  {it.label}
+                </button>
+              ) : (
+                <>
+                  <span className="item-label">{it.label}</span>
+                  <Toggle label={`Place: ${it.label}`} options={(def.zones ?? []).map((z) => z.label)} value={(def.zones ?? []).find((z) => z.id === picks[it.id])?.label ?? ''} onChange={(v) => setPick(it.id, def.zones?.find((z) => z.label === v)?.id)} />
+                </>
+              )}
+              {checked && mark && mark !== 'right' && it.why && <span className="why">{it.why}</span>}
+            </li>
+          );
+        })}
+      </ul>
+      <div className="board-actions">
+        <Button variant="primary" onClick={() => setLearner((l) => ({ ...l, boardChecked: { ...l.boardChecked, [boardId]: true } }))}>Check</Button>
+        <Button onClick={() => setLearner((l) => ({ ...l, board: { ...l.board, [boardId]: {} }, boardChecked: { ...l.boardChecked, [boardId]: false } }))}>Reset</Button>
+        <span id="probe-result" className="result" aria-live="polite">
+          {checked ? (run.metrics.complete ? 'All right.' : `${run.metrics.right} right, ${run.metrics.wrong} wrong, ${run.metrics.missed} missed. Adjust and check again.`) : 'Make your choices, then press Check.'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function CoverageControls({ ev, scene, learner, setLearner }: ControlsProps) {
+  const [tier, setTier] = useState<'basic' | 'plus'>('basic');
+  const [amount, setAmount] = useState(5000);
+  if (ev.kind !== 'coverage' || scene.kind !== 'coverage') return null;
+  return (
+    <div className="cov-ctl">
+      {scene.learnerTests && (
+        <div className="switches" role="group" aria-label="New test">
+          <Toggle label="Test tier" options={['Basic', 'Plus'] as const} value={tier === 'plus' ? 'Plus' : 'Basic'} onChange={(v) => setTier(v === 'Plus' ? 'plus' : 'basic')} />
+          <Toggle label="Test amount" options={['₦5,000', '₦200,000'] as const} value={amount === 5000 ? '₦5,000' : '₦200,000'} onChange={(v) => setAmount(v === '₦5,000' ? 5000 : 200_000)} />
+          <Button variant="primary" onClick={() => setLearner((l) => ({ ...l, covTests: [...l.covTests, { tier, amount }] }))}>Add test</Button>
+          <Button onClick={() => setLearner((l) => ({ ...l, covTests: [] }))}>Clear my tests</Button>
+        </div>
+      )}
+      {scene.fixed === 'learner' && (
+        <div className="switch">
+          <span>Declaration</span>
+          <Toggle label="rate declaration" options={['let rate;', 'let rate = 0;'] as const} value={learner.covFixed ? 'let rate = 0;' : 'let rate;'} onChange={(v) => setLearner((l) => ({ ...l, covFixed: v === 'let rate = 0;' }))} />
+        </div>
+      )}
+      <ul id="probe-result" className="cov-results" aria-live="polite">
+        {ev.run.results.map((r, i) => (
+          <li key={`${r.id}-${i}`} data-pass={r.passed}>
+            {r.tier === 'plus' ? 'Plus' : 'Basic'} · {naira(r.amount)} → {Number.isNaN(r.actual) ? '₦NaN' : naira(r.actual)} (spec {naira(r.expected)}) <Chip tone={r.passed ? 'good' : 'bad'}>{r.passed ? 'PASS' : 'FAIL'}</Chip>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function BoundaryControls({ ev, scene, learner, setLearner }: ControlsProps) {

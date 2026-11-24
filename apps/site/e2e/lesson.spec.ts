@@ -111,8 +111,8 @@ test('the last step has a check with explanations', async ({ page }) => {
 });
 
 test('a deep link cannot skip an unfinished step', async ({ page }) => {
+  await page.goto('about:blank');
   await page.goto('/learn/partitions-boundaries#step-7');
-  await page.reload();
   await expect(narration(page)).toContainText('Split the input into groups');
 });
 
@@ -136,7 +136,6 @@ test('the team checklist is always visible', async ({ page }) => {
 });
 
 test('lessons not built yet show a placeholder', async ({ page }) => {
-  await page.goto('/learn/coverage');
+  await page.goto('/learn/pact');
   await expect(page.getByText('This lesson is planned but not built yet.')).toBeVisible();
-  await expect(page.getByText('Covers CTFL FL-4.3.')).toBeVisible();
 });

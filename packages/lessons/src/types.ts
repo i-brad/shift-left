@@ -20,7 +20,9 @@ export type GoalCheck =
   | { kind: 'probe-fails'; amount: number }
   | { kind: 'all-pass' }
   | { kind: 'fee-fails' }
-  | { kind: 'card-wrong'; id: string };
+  | { kind: 'card-wrong'; id: string }
+  | { kind: 'board-complete'; board: string }
+  | { kind: 'cov-fails' };
 
 export type BoundaryScene = {
   kind: 'boundaries';
@@ -58,7 +60,29 @@ export type CardScene = {
   ci?: boolean;
 };
 
-export type SceneState = BoundaryScene | FeeScene | CardScene;
+export type BoardScene = {
+  kind: 'board';
+  /** Key into the lesson's `boards`. */
+  board: string;
+  /** Show right / wrong without the learner pressing Check. */
+  reveal?: boolean;
+};
+
+export type CoverageScene = {
+  kind: 'coverage';
+  /** Tests already in the suite. */
+  suite: readonly { tier: 'basic' | 'plus'; amount: number }[];
+  /** Whether `rate` is initialised. 'learner' = learner switches it, starting unfixed. */
+  fixed: boolean | 'learner';
+  /** Learner can add their own tests. */
+  learnerTests?: boolean;
+  /** Show branch paths, not just statements. */
+  showBranches?: boolean;
+  incident?: boolean;
+  ci?: boolean;
+};
+
+export type SceneState = BoundaryScene | FeeScene | CardScene | BoardScene | CoverageScene;
 export type SceneKind = SceneState['kind'];
 
 export type Step = {
@@ -111,6 +135,8 @@ export type Lesson = {
   learn: { text: string; afterStep: number }[];
   steps: Step[];
   exercise?: string;
+  /** Board activities used by `board` scenes, by key. */
+  boards?: Record<string, import('@shift-left/sim').BoardDef>;
   /** End-of-lesson questions. */
   check: CheckQuestion[];
   /** How to use this on a real product team tomorrow. */

@@ -9,3 +9,4 @@ playwright-report
 *.db-journal
 .env
 .DS_Store
+exercises/*/coverage

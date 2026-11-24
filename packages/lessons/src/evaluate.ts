@@ -13,6 +13,8 @@ import {
   ruleOf,
   run,
   runCard,
+  runBoard,
+  runCoverage,
   runFees,
   specFee,
   specNext,
@@ -20,6 +22,11 @@ import {
   type BoundaryModel,
   type BoundaryRun,
   type CardRun,
+  type BoardDef,
+  type BoardPicks,
+  type BoardRun,
+  type CovTest,
+  type CoverageRun,
   type CardState,
   type FeeCombo,
   type FeeOrder,
@@ -29,7 +36,7 @@ import {
   type Tier,
   type Transition,
 } from '@shift-left/sim';
-import type { BoundaryScene, CardScene, FeeScene, GoalCheck, Step } from './types';
+import type { BoardScene, BoundaryScene, CardScene, CoverageScene, FeeScene, GoalCheck, Lesson, Step } from './types';
 
 /** Everything the learner has done in the lesson. One shape for all scenes; each scene reads its part. */
 export type Learner = {
@@ -39,6 +46,10 @@ export type Learner = {
   feeOrder: FeeOrder;
   card: { state: CardState; tried: Transition[] };
   cardFixed: boolean;
+  board: Record<string, BoardPicks>;
+  boardChecked: Record<string, boolean>;
+  covTests: CovTest[];
+  covFixed: boolean;
 };
 
 export const initialLearner = (): Learner => ({
@@ -48,6 +59,10 @@ export const initialLearner = (): Learner => ({
   feeOrder: 'express-first',
   card: { state: 'active', tried: [] },
   cardFixed: false,
+  board: {},
+  boardChecked: {},
+  covTests: [],
+  covFixed: false,
 });
 
 export type BoundaryEval = {
@@ -81,10 +96,18 @@ export type CardEval = {
   goalMet: boolean;
 };
 
-export type StepEval = BoundaryEval | FeeEval | CardEval;
+export type BoardEval = { kind: 'board'; boardId: string; def: BoardDef; run: BoardRun; checked: boolean; escapedBugs: number; goalMet: boolean };
 
-export function evaluateStep(step: Step, learner: Learner): StepEval {
+export type CoverageEval = { kind: 'coverage'; fixed: boolean; run: CoverageRun; escapedBugs: number; goalMet: boolean };
+
+export type StepEval = BoundaryEval | FeeEval | CardEval | BoardEval | CoverageEval;
+
+export function evaluateStep(step: Step, learner: Learner, lesson?: Pick<Lesson, 'boards'>): StepEval {
   switch (step.scene.kind) {
+    case 'board':
+      return evalBoard(step, step.scene, learner, lesson);
+    case 'coverage':
+      return evalCoverage(step, step.scene, learner);
     case 'boundaries':
       return evalBoundaries(step, step.scene, learner);
     case 'fees':
@@ -133,7 +156,25 @@ function evalCard(step: Step, scene: CardScene, learner: Learner): CardEval {
   return { kind: 'card', bug, run: result, tried, state: learner.card.state, escapedBugs, goalMet };
 }
 
-type GoalFacts = { allPass: boolean; probe?: ProbeResult | null; feeYouFails?: boolean; cardWrong?: Set<string> };
+function evalBoard(step: Step, scene: BoardScene, learner: Learner, lesson?: Pick<Lesson, 'boards'>): BoardEval {
+  const def = lesson?.boards?.[scene.board];
+  if (!def) throw new Error(`Unknown board "${scene.board}"`);
+  const result = runBoard(def, learner.board[scene.board] ?? {});
+  const checked = !!scene.reveal || !!learner.boardChecked[scene.board];
+  const goalMet = !step.goal || checkGoal(step.goal.check, { allPass: result.metrics.complete, boardDone: { [scene.board]: checked && result.metrics.complete } });
+  return { kind: 'board', boardId: scene.board, def, run: result, checked, escapedBugs: 0, goalMet };
+}
+
+function evalCoverage(step: Step, scene: CoverageScene, learner: Learner): CoverageEval {
+  const fixed = scene.fixed === 'learner' ? learner.covFixed : scene.fixed;
+  const tests = [...scene.suite, ...(scene.learnerTests ? learner.covTests : [])];
+  const result = runCoverage(tests, fixed);
+  const escapedBugs = scene.incident && !fixed ? 1 : 0;
+  const goalMet = !step.goal || checkGoal(step.goal.check, { allPass: result.metrics.failing === 0, covFails: result.metrics.failing > 0 });
+  return { kind: 'coverage', fixed, run: result, escapedBugs, goalMet };
+}
+
+type GoalFacts = { allPass: boolean; probe?: ProbeResult | null; feeYouFails?: boolean; cardWrong?: Set<string>; boardDone?: Record<string, boolean>; covFails?: boolean };
 
 export function checkGoal(check: GoalCheck, f: GoalFacts): boolean {
   switch (check.kind) {
@@ -145,6 +186,10 @@ export function checkGoal(check: GoalCheck, f: GoalFacts): boolean {
       return !!f.feeYouFails;
     case 'card-wrong':
       return !!f.cardWrong?.has(check.id);
+    case 'board-complete':
+      return !!f.boardDone?.[check.board];
+    case 'cov-fails':
+      return !!f.covFails;
   }
 }
 

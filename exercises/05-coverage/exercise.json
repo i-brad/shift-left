@@ -1,0 +1,7 @@
+{
+  "title": "05 · Coverage: reach 100% branch coverage on cashback()",
+  "lesson": "coverage",
+  "bug": "cashback-basic-undefined",
+  "runner": "vitest",
+  "ctfl": ["FL-4.3"]
+}

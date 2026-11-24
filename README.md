@@ -38,6 +38,7 @@ exercises/
   02-boundaries/          Partitions and boundaries
   03-decision-tables/     Decision tables (fees)
   04-state-transitions/   State transitions (card)
+  05-coverage/            Statement and branch coverage (Vitest + coverage report)
 scripts/
   exercise.mjs     Runs an exercise against a fresh Kudi with its bug on or off
 ```
@@ -57,6 +58,7 @@ KUDI_BUGS=limit-exclusive pnpm kudi
 | `limit-exclusive` | Partitions and boundaries | Maximum uses `<` instead of `<=`, so exactly ₦500,000 is rejected |
 | `fee-express-first` | Decision tables | Fee rules check express before tier, so Plus express costs ₦100, not ₦50 |
 | `card-unblock` | State transitions | Unfreeze only checks "not active", so a blocked card can be reactivated |
+| `cashback-basic-undefined` | Statement and branch coverage | `rate` is never initialised, so Basic customers get NaN cashback |
 
 The list lives in `apps/kudi/src/bugs.ts`. Exercises turn their bug on for you.
 

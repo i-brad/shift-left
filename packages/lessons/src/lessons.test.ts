@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attemptCard, course, decisionTables, evaluateStep, glossary, initialLearner, lessonCount, lessons, partitionsBoundaries as L, stateTransitions, type BoundaryEval, type CardEval, type FeeEval, type Learner, type Lesson } from './index';
+import { acceptanceCriteria, attemptCard, coverage, course, defectReports, exploratory, decisionTables, evaluateStep, glossary, initialLearner, lessonCount, lessons, partitionsBoundaries as L, stateTransitions, type BoardEval, type BoundaryEval, type CardEval, type CoverageEval, type FeeEval, type Learner, type Lesson } from './index';
 
 const learner = (o: Partial<Learner> = {}): Learner => ({ ...initialLearner(), ...o });
 const stepOf = (lesson: Lesson, id: string) => {
@@ -101,7 +101,7 @@ describe('Partitions and boundaries', () => {
 
   it('every step after the fix is green', () => {
     for (const id of ['automate', 'recap']) {
-      expect(evaluateStep(step(id), learner()).run.metrics.failing).toBe(0);
+      expect((evaluateStep(step(id), learner()) as BoundaryEval).run.metrics.failing).toBe(0);
     }
   });
 });
@@ -114,6 +114,7 @@ describe('every built lesson', () => {
         expect(new Set(lesson.steps.map((s) => s.rail)).size).toBe(lesson.steps.length);
         for (const s of lesson.steps) {
           expect(s.scene.kind).toBe(lesson.scene);
+          if (s.scene.kind === 'board') expect(lesson.boards?.[s.scene.board], s.scene.board).toBeDefined();
           if (s.predict) expect(s.predict.options.map((o) => o.id)).toContain(s.predict.answer);
         }
         for (const l of lesson.learn) expect(lesson.steps[l.afterStep]).toBeDefined();
@@ -178,5 +179,49 @@ describe('State transitions', () => {
   it('the root-cause goal needs the learner to fix the check', () => {
     expect(card('root-cause').goalMet).toBe(false);
     expect(card('root-cause', { cardFixed: true }).goalMet).toBe(true);
+  });
+});
+
+describe('board lessons', () => {
+  for (const lesson of [exploratory, acceptanceCriteria, defectReports]) {
+    it(`${lesson.title}: every board goal is reachable with the right answers and not with none`, () => {
+      for (const s of lesson.steps.filter((x) => x.goal?.check.kind === 'board-complete')) {
+        const id = (s.goal!.check as { board: string }).board;
+        const def = lesson.boards![id]!;
+        const right = Object.fromEntries(def.items.filter((i) => def.mode === 'classify' || i.answer === 'yes').map((i) => [i.id, def.mode === 'select' ? 'yes' : i.answer]));
+        expect(evaluateStep(s, learner(), lesson).goalMet).toBe(false);
+        expect(evaluateStep(s, learner({ board: { [id]: right } }), lesson).goalMet, 'needs Check').toBe(false);
+        expect(evaluateStep(s, learner({ board: { [id]: right }, boardChecked: { [id]: true } }), lesson).goalMet).toBe(true);
+      }
+    });
+  }
+
+  it('board evals expose the board', () => {
+    const e = evaluateStep(exploratory.steps[0]!, learner(), exploratory) as BoardEval;
+    expect(e.def.items.length).toBeGreaterThan(5);
+  });
+});
+
+describe('Statement and branch coverage', () => {
+  const C = coverage;
+  const cov = (id: string, o: Partial<Learner> = {}) => evaluateStep(stepOf(C, id), learner(o)) as CoverageEval;
+
+  it('one test: 100% statements, 50% branches, passing', () => {
+    expect(cov('hundred').run.metrics).toMatchObject({ statementPct: 100, branchPct: 50, failing: 0 });
+  });
+
+  it('the incident goal needs a learner test on the Basic path', () => {
+    expect(cov('incident').goalMet).toBe(false);
+    expect(cov('incident', { covTests: [{ tier: 'plus', amount: 5000 }] }).goalMet).toBe(false);
+    expect(cov('incident', { covTests: [{ tier: 'basic', amount: 5000 }] }).goalMet).toBe(true);
+  });
+
+  it('all four combinations: 2 fail', () => {
+    expect(cov('all-branches').run.metrics).toMatchObject({ branchPct: 100, failing: 2 });
+  });
+
+  it('root cause needs the learner fix', () => {
+    expect(cov('root-cause').goalMet).toBe(false);
+    expect(cov('root-cause', { covFixed: true }).goalMet).toBe(true);
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { bugsFrom } from '../bugs';
+import { bugsFrom, noBugs } from '../bugs';
 import { nextCardState } from './card';
+import { cashback } from './cashback';
 import { calculateFee } from './fees';
 
 describe('calculateFee (spec)', () => {
@@ -40,5 +41,21 @@ describe('nextCardState (spec)', () => {
 
   it('card-unblock lets a blocked card be unfrozen', () => {
     expect(nextCardState('blocked', 'unfreeze', bugsFrom(['card-unblock']))).toBe('active');
+  });
+});
+
+describe('cashback (spec)', () => {
+  it.each([
+    ['basic', 5000, 0],
+    ['basic', 200_000, 0],
+    ['plus', 5000, 50],
+    ['plus', 100_000, 1000],
+    ['plus', 100_001, 2000],
+  ] as const)('%s ₦%i → ₦%i', (tier, amount, value) => {
+    expect(cashback(tier, amount, noBugs)).toBe(value);
+  });
+
+  it('cashback-basic-undefined gives Basic NaN', () => {
+    expect(cashback('basic', 5000, bugsFrom(['cashback-basic-undefined']))).toBeNaN();
   });
 });

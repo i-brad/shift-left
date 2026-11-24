@@ -2,6 +2,7 @@ import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { noBugs, type Bugs } from '../bugs';
 import { CARD_ACTIONS, nextCardState, type CardAction } from '../domain/card';
+import { cashback } from '../domain/cashback';
 import { calculateFee } from '../domain/fees';
 import { validateAmount, type TransferError } from '../domain/transfer';
 import { checkPassword, type Db, type User } from './db';
@@ -70,6 +71,14 @@ export function createApp({ db, bugs = noBugs, testRoutes = true }: { db: Db; bu
     const check = validateAmount(amount, bugs);
     if (!check.ok) return fail(c, check.error);
     return c.json({ fee: calculateFee(c.get('user').tier, check.amount, express, bugs) });
+  });
+
+  app.get('/cashback', (c) => {
+    const amount = Number(c.req.query('amount'));
+    const check = validateAmount(amount, bugs);
+    if (!check.ok) return fail(c, check.error);
+    const value = cashback(c.get('user').tier, check.amount, bugs);
+    return c.json({ cashback: Number.isNaN(value) ? null : value });
   });
 
   app.get('/card', (c) => c.json({ state: db.cardState(c.get('user').id) }));

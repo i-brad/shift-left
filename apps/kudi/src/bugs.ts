@@ -14,6 +14,10 @@ export const BUGS = {
     lesson: 'decision-tables',
     summary: 'The fee rules check express before tier, so Plus customers pay the Basic express fee (₦100 instead of ₦50).',
   },
+  'cashback-basic-undefined': {
+    lesson: 'coverage',
+    summary: 'rate is never initialised, so Basic customers get NaN cashback.',
+  },
   'card-unblock': {
     lesson: 'state-transitions',
     summary: 'Unfreeze only checks "not active", so a blocked card can be reactivated.',
@@ -37,3 +41,8 @@ export function bugsFrom(active: Iterable<BugName>): Bugs {
 }
 
 export const noBugs: Bugs = bugsFrom([]);
+
+/** Choose between the planted (buggy) and the correct value. Keeps the switch out of the code learners measure. */
+export function plant<T>(bugs: Bugs, name: BugName, buggy: T, correct: T): T {
+  return bugs.on(name) ? buggy : correct;
+}

@@ -41,22 +41,26 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
   const deepRef = useRef<HTMLDetailsElement>(null);
 
   const step = lesson.steps[cur]!;
-  const ev = useMemo(() => evaluateStep(step, learner), [step, learner]);
+  const ev = useMemo(() => evaluateStep(step, learner, lesson), [step, learner, lesson]);
 
-  // Restore progress and the step from the URL hash (#step-3).
+  // Restore progress, then follow the URL hash (#step-3) now and whenever it changes.
   useEffect(() => {
     const saved = load(lesson.id);
     setMet(new Set(saved.met));
     setPredictions(saved.predictions ?? {});
-    const m = /^#step-(\d+)$/.exec(window.location.hash);
-    if (m) {
-      // Never jump past a goal that hasn't been met.
+    const fromHash = () => {
+      const m = /^#step-(\d+)$/.exec(window.location.hash);
+      if (!m) return;
+      // Never jump past a goal or prediction that hasn't been done.
       const wanted = Math.min(lesson.steps.length - 1, Math.max(0, Number(m[1]) - 1));
-      const firstLocked = lesson.steps.findIndex((s, i) => i > 0 && lesson.steps.slice(0, i).some((p) => (p.goal && !saved.met.includes(p.id)) || (p.predict && !saved.predictions?.[p.id])));
+      const latest = load(lesson.id);
+      const firstLocked = lesson.steps.findIndex((s, i) => i > 0 && lesson.steps.slice(0, i).some((p) => (p.goal && !latest.met.includes(p.id)) || (p.predict && !latest.predictions?.[p.id])));
       setCur(firstLocked === -1 ? wanted : Math.min(wanted, firstLocked - 1));
-    }
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReducedMotion(mq.matches);
+    };
+    fromHash();
+    window.addEventListener('hashchange', fromHash);
+    setReducedMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    return () => window.removeEventListener('hashchange', fromHash);
   }, [lesson]);
 
   // Record a goal the moment it is met.
@@ -148,7 +152,7 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
           <div className={`fig ${reducedMotion ? '' : 'anim'}`} key={animKey}>
             <SceneView ev={ev} scene={step.scene} reducedMotion={reducedMotion} hideResults={!predicted} />
           </div>
-          <div className="controls" key={`controls-${cur}`}>
+          <div className={`controls controls-${ev.kind}`} key={`controls-${cur}`}>
             <SceneControls ev={ev} scene={step.scene} learner={learner} setLearner={setLearner} />
           </div>
           <div className="legend" aria-hidden="true">
