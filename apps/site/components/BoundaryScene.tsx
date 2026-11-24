@@ -16,7 +16,7 @@ function rulerX(v: number, min: number, max: number): number {
 
 const BOUNDS: Point3[] = [[0, RY, 7.5], [20, RY, 0], [0.3, 5.4, 0], [24, 3, 0], [20, RY + RD, 0], [16.5, 0, 6]];
 
-type Pin = { amount: number; x: number; passed: boolean; you: boolean; text: string; h: number };
+type Pin = { amount: number; x: number; passed: boolean; you: boolean; hidden: boolean; text: string; h: number };
 
 /** Stack chips so none overlap in screen space (2D rectangle packing, lowest free row first). */
 function packPins(pins: Omit<Pin, 'h'>[]): Pin[] {
@@ -37,16 +37,16 @@ function packPins(pins: Omit<Pin, 'h'>[]): Pin[] {
     });
 }
 
-export function BoundaryScene({ evalState, scene, reducedMotion }: { evalState: StepEval; scene: SceneState; reducedMotion: boolean }) {
+export function BoundaryScene({ evalState, scene, reducedMotion, hideResults = false }: { evalState: StepEval; scene: SceneState; reducedMotion: boolean; hideResults?: boolean }) {
   const { model, run, you, isRandom, escapedBugs } = evalState;
   const X = (v: number) => rulerX(v, model.min, model.max);
-  const failing = run.metrics.failing > 0;
+  const failing = run.metrics.failing > 0 && !hideResults;
   const bugLive = model.maxOperator === '<';
   const validatorRed = !!scene.incident && bugLive;
 
   const pins = packPins([
-    ...(isRandom ? [] : run.results.map((r) => ({ amount: r.amount, x: X(r.amount), passed: r.passed, you: false, text: `${naira(r.amount)} ${r.passed ? '✓' : '✕'}` }))),
-    ...(you ? [{ amount: you.amount, x: X(you.amount), passed: you.passed, you: true, text: `you: ${naira(you.amount)} ${you.passed ? '✓' : '✕'}` }] : []),
+    ...(isRandom ? [] : run.results.map((r) => ({ amount: r.amount, x: X(r.amount), passed: r.passed, you: false, hidden: hideResults, text: `${naira(r.amount)} ${hideResults ? '?' : r.passed ? '✓' : '✕'}` }))),
+    ...(you ? [{ amount: you.amount, x: X(you.amount), passed: you.passed, you: true, hidden: false, text: `you: ${naira(you.amount)} ${you.passed ? '✓' : '✕'}` }] : []),
   ]);
 
   // Random tests pile up as cubes, bucketed by position.
@@ -64,7 +64,7 @@ export function BoundaryScene({ evalState, scene, reducedMotion }: { evalState: 
   const tileGrid = Array.from({ length: tiles }, (_, i) => ({
     x: 1.3 + (i % 4) * 1.02,
     y: 0.3 + Math.floor(i / 4) * 1.02,
-    passed: isRandom ? true : run.results[i]?.passed ?? true,
+    passed: isRandom || hideResults ? true : run.results[i]?.passed ?? true,
   })).sort((a, b) => a.x + a.y - (b.x + b.y));
 
   const ruleTone: LabelTone = validatorRed ? 'bad' : bugLive ? 'neutral' : 'good';
@@ -101,13 +101,13 @@ export function BoundaryScene({ evalState, scene, reducedMotion }: { evalState: 
       {isRandom && <Label at={[X(3000), RY + 1.3, RZ + 5.2]} tone="good" text={`${run.metrics.tests} random tests, ${run.metrics.tests - run.metrics.failing} ✓, all one group`} />}
 
       {pins.map((p, i) => (
-        <g key={`post-${p.amount}-${p.you}`} className="pin" style={{ animationDelay: `${i * 80}ms` }} data-testid={p.you ? 'your-post' : 'post'}>
-          <IsoBox x={p.x - 0.17} y={RY + 1.1} z={RZ} w={0.34} d={0.34} h={p.h} tone={p.you ? 'lavender' : p.passed ? 'sage' : 'rose'} />
+        <g key={`post-${p.amount}-${p.you}`} className="pin" style={{ animationDelay: `${i * 80}ms` }} data-testid={p.you ? 'your-post' : 'post'} data-result={p.hidden ? 'hidden' : p.passed ? 'pass' : 'fail'}>
+          <IsoBox x={p.x - 0.17} y={RY + 1.1} z={RZ} w={0.34} d={0.34} h={p.h} tone={p.you ? 'lavender' : p.hidden ? 'cream' : p.passed ? 'sage' : 'rose'} />
         </g>
       ))}
       {pins.map((p, i) => (
         <g key={`chip-${p.amount}-${p.you}`} className="pin" style={{ animationDelay: `${i * 80}ms` }}>
-          <Label at={[p.x, RY + 1.27, RZ + p.h]} lift={3} text={p.text} tone={p.you ? 'you' : p.passed ? 'good' : 'bad'} />
+          <Label at={[p.x, RY + 1.27, RZ + p.h]} lift={3} text={p.text} tone={p.you ? 'you' : p.hidden ? 'neutral' : p.passed ? 'good' : 'bad'} />
         </g>
       ))}
 

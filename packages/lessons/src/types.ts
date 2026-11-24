@@ -3,7 +3,7 @@
 export type StepRole = 'setup' | 'problem' | 'fix' | 'recap';
 export type CalloutKind = 'key' | 'watch' | 'try';
 
-/** Inline text supports **bold** and `code`. */
+/** Inline text supports **bold**, `code` and [[glossary-key]] or [[glossary-key|shown words]]. */
 export type DeepBlock =
   | { type: 'h'; text: string }
   | { type: 'p'; text: string }
@@ -43,8 +43,28 @@ export type Step = {
   changed: string[];
   scene: SceneState;
   goal?: { text: string; check: GoalCheck };
+  /** Ask the learner to predict before the scene shows results. Answering unlocks Next. */
+  predict?: Prediction;
   deep: { title: string; blocks: DeepBlock[] };
 };
+
+export type Prediction = {
+  question: string;
+  options: { id: string; label: string }[];
+  answer: string;
+  /** Shown after answering, right or wrong. */
+  explain: string;
+};
+
+export type CheckQuestion = {
+  q: string;
+  options: string[];
+  /** Index into options. */
+  answer: number;
+  why: string;
+};
+
+export type GlossaryEntry = { term: string; def: string };
 
 export type Lesson = {
   id: string;
@@ -60,6 +80,10 @@ export type Lesson = {
   learn: { text: string; afterStep: number }[];
   steps: Step[];
   exercise?: string;
+  /** End-of-lesson questions. */
+  check: CheckQuestion[];
+  /** How to use this on a real product team tomorrow. */
+  atWork: string[];
 };
 
 export type CourseLesson = { id: string; title: string; ctfl?: string[]; built: boolean };

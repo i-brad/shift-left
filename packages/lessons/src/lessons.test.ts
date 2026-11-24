@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { course, evaluateStep, lessonCount, lessons, partitionsBoundaries as L } from './index';
+import { course, evaluateStep, glossary, lessonCount, lessons, partitionsBoundaries as L } from './index';
 
 const step = (id: string) => {
   const s = L.steps.find((x) => x.id === id);
@@ -26,7 +26,37 @@ describe('course outline', () => {
   });
 });
 
+describe('glossary links', () => {
+  it('every [[term]] in lesson text exists in the glossary', () => {
+    const text = JSON.stringify(Object.values(lessons));
+    const keys = [...text.matchAll(/\[\[([a-z0-9-]+)(?:\|[^\]]+)?\]\]/g)].map((m) => m[1]!);
+    expect(keys.length).toBeGreaterThan(5);
+    for (const k of keys) expect(glossary[k], k).toBeDefined();
+  });
+});
+
 describe('Partitions and boundaries', () => {
+  it('predictions have their answer among the options', () => {
+    for (const s of L.steps.filter((s) => s.predict)) {
+      expect(s.predict!.options.map((o) => o.id)).toContain(s.predict!.answer);
+    }
+  });
+
+  it('the boundary prediction matches what the simulation says fails', () => {
+    const e = evaluateStep(step('boundaries'), { operator: '<', probe: null });
+    const failing = e.run.results.filter((r) => !r.passed).map((r) => String(r.amount));
+    expect(failing).toEqual([step('boundaries').predict!.answer]);
+  });
+
+  it('the partition prediction is right: three partitions find nothing', () => {
+    const e = evaluateStep(step('partitions'), { operator: '<', probe: null });
+    expect(e.run.metrics.failing === 0 ? 'no' : 'yes').toBe(step('partitions').predict!.answer);
+  });
+
+  it('check answers point at real options', () => {
+    for (const q of L.check) expect(q.options[q.answer]).toBeDefined();
+  });
+
   it('has unique step ids and rail labels', () => {
     expect(new Set(L.steps.map((s) => s.id)).size).toBe(L.steps.length);
     expect(new Set(L.steps.map((s) => s.rail)).size).toBe(L.steps.length);

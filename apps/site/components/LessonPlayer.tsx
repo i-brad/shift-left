@@ -6,12 +6,13 @@ import { Button, Callout, Chip, Metric, StepRail, Toggle, type Tone } from '@shi
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { BoundaryScene } from './BoundaryScene';
 import { DeepDive } from './DeepDive';
+import { AtWork, LessonCheck, PredictCard } from './Learning';
 import { RichText } from './RichText';
 
 const naira = (v: number) => `${v < 0 ? '-' : ''}₦${Math.abs(v).toLocaleString('en-NG')}`;
 const roleLabel = { setup: 'SETUP', problem: 'PROBLEM', fix: 'FIX', recap: 'RECAP' } as const;
 
-type Saved = { met: string[]; furthest: number };
+type Saved = { met: string[]; furthest: number; predictions?: Record<string, string> };
 const storageKey = (id: string) => `shift-left:progress:${id}`;
 function load(id: string): Saved {
   try {
@@ -37,6 +38,7 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
   const [amount, setAmount] = useState('');
   const [inputError, setInputError] = useState<string | null>(null);
   const [met, setMet] = useState<Set<string>>(new Set());
+  const [predictions, setPredictions] = useState<Record<string, string>>({});
   const [deepOpen, setDeepOpen] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [animKey, setAnimKey] = useState(0);
@@ -49,11 +51,12 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
   useEffect(() => {
     const saved = load(lesson.id);
     setMet(new Set(saved.met));
+    setPredictions(saved.predictions ?? {});
     const m = /^#step-(\d+)$/.exec(window.location.hash);
     if (m) {
       // Never jump past a goal that hasn't been met.
       const wanted = Math.min(lesson.steps.length - 1, Math.max(0, Number(m[1]) - 1));
-      const firstLocked = lesson.steps.findIndex((s, i) => i > 0 && lesson.steps.slice(0, i).some((p) => p.goal && !saved.met.includes(p.id)));
+      const firstLocked = lesson.steps.findIndex((s, i) => i > 0 && lesson.steps.slice(0, i).some((p) => (p.goal && !saved.met.includes(p.id)) || (p.predict && !saved.predictions?.[p.id])));
       setCur(firstLocked === -1 ? wanted : Math.min(wanted, firstLocked - 1));
     }
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -65,29 +68,40 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
     if (step.goal && ev.goalMet && !met.has(step.id)) {
       setMet((prev) => {
         const next = new Set(prev).add(step.id);
-        save(lesson.id, { met: [...next], furthest: cur });
+        save(lesson.id, { met: [...next], furthest: cur, predictions });
         return next;
       });
     }
   }, [ev.goalMet, step, met, lesson.id, cur]);
 
-  /** A step is locked while any earlier goal step is unmet. */
+  /** A step is locked while any earlier goal or prediction is unfinished. */
   const isLocked = useCallback(
-    (i: number) => lesson.steps.slice(0, i).some((s) => s.goal && !met.has(s.id)),
-    [lesson.steps, met],
+    (i: number) => lesson.steps.slice(0, i).some((s) => (s.goal && !met.has(s.id)) || (s.predict && !predictions[s.id])),
+    [lesson.steps, met, predictions],
   );
+
+  const choosePrediction = (id: string) => {
+    setPredictions((prev) => {
+      const next = { ...prev, [step.id]: id };
+      save(lesson.id, { met: [...met], furthest: cur, predictions: next });
+      return next;
+    });
+  };
 
   const go = useCallback(
     (i: number) => {
       if (i < 0 || i >= lesson.steps.length || isLocked(i)) return;
       setCur(i);
+      setProbe(null);
+      setAmount('');
       setAnimKey((k) => k + 1);
       history.replaceState(null, '', `#step-${i + 1}`);
     },
     [lesson.steps.length, isLocked],
   );
 
-  const canNext = !step.goal || ev.goalMet || met.has(step.id);
+  const predicted = !step.predict || !!predictions[step.id];
+  const canNext = (!step.goal || ev.goalMet || met.has(step.id)) && predicted;
   const next = lesson.steps[cur + 1];
 
   useEffect(() => {
@@ -120,7 +134,7 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
 
   const m = ev.run.metrics;
   const metrics: { label: string; value: string | number; tone: Tone }[] = [
-    { label: 'Tests', value: m.tests, tone: m.failing > 0 ? 'bad' : 'neutral' },
+    { label: 'Tests', value: m.tests, tone: m.failing > 0 && predicted ? 'bad' : 'neutral' },
     { label: 'Suite time', value: `${m.suiteSeconds} s`, tone: 'neutral' },
     { label: 'Groups covered', value: `${m.groupsCovered} / 3`, tone: m.groupsCovered === 3 ? 'good' : 'neutral' },
     { label: 'Edges covered', value: `${m.edgesCovered} / 4`, tone: m.edgesCovered === 4 ? 'good' : 'neutral' },
@@ -156,7 +170,7 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
 
         <section className="scene" aria-label="Interactive scene">
           <div className={`fig ${reducedMotion ? '' : 'anim'}`} key={animKey}>
-            <BoundaryScene evalState={ev} scene={step.scene} reducedMotion={reducedMotion} />
+            <BoundaryScene evalState={ev} scene={step.scene} reducedMotion={reducedMotion} hideResults={!predicted} />
           </div>
           <div className="controls">
             <form className="console" onSubmit={runProbe}>
@@ -206,6 +220,8 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
           <StepRail steps={lesson.steps.map((s) => ({ label: s.rail }))} current={cur} onSelect={go} isLocked={isLocked} />
         </div>
 
+        {!next && lesson.check.length > 0 && <LessonCheck questions={lesson.check} />}
+
         <DeepDive ref={deepRef} title={step.deep.title} blocks={step.deep.blocks} open={deepOpen} onToggle={setDeepOpen} />
       </main>
 
@@ -226,13 +242,14 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
           )}
           {step.code && <pre>{step.code}</pre>}
           {step.after && <p><RichText text={step.after} /></p>}
+          {step.predict && <PredictCard predict={step.predict} chosen={predictions[step.id]} onChoose={choosePrediction} />}
           {step.goal && (
             <Callout kind="goal" title={canNext ? 'Goal complete ✓' : 'Your goal'}>
               {step.goal.text}
             </Callout>
           )}
-          {step.callout && <Callout kind={step.callout.kind}>{step.callout.text}</Callout>}
-          {step.changed.length > 0 && (
+          {step.callout && <Callout kind={step.callout.kind}><RichText text={step.callout.text} /></Callout>}
+          {step.changed.length > 0 && predicted && (
             <>
               <b className="mini-hd">WHAT CHANGED</b>
               <ul className="chg">
@@ -257,7 +274,7 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
               {next ? `Next: ${next.rail} →` : 'Replay lesson ↺'}
             </Button>
           </div>
-          {!canNext && <p className="keys" id="goal-hint">Complete the goal to continue.</p>}
+          {!canNext && <p className="keys" id="goal-hint">{predicted ? 'Complete the goal to continue.' : 'Make your prediction to continue.'}</p>}
           <p className="keys">← → step · R replay · D deeper</p>
         </div>
         <div className="card learn">
@@ -271,6 +288,7 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
             ))}
           </ul>
         </div>
+        <AtWork items={lesson.atWork} />
         {lesson.exercise && (
           <div className="card practice">
             <h3>Practice</h3>

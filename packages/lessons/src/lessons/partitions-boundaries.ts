@@ -14,6 +14,33 @@ export const partitionsBoundaries: Lesson = {
   ctfl: ['FL-4.2.1', 'FL-4.2.2'],
   scene: 'boundaries',
   exercise: 'exercises/02-boundaries',
+  check: [
+    {
+      q: 'A password must be 8 to 64 characters. Which set of lengths is the best boundary test?',
+      options: ['8, 20, 64', '7, 8, 64, 65', '1, 100', '0, 8, 1000'],
+      answer: 1,
+      why: 'Both sides of both edges: 7 and 8 at the minimum, 64 and 65 at the maximum.',
+    },
+    {
+      q: 'You ran 200 random ages between 18 and 60 and all passed. What do you know?',
+      options: ['The age field works', 'Ages 18 to 60 mostly behave; the edges and invalid ages are untested', 'Nothing at all', 'You need 2,000 tests'],
+      answer: 1,
+      why: 'Random values cluster in the middle of one partition. 17, 18, 60, 61 and invalid input were almost certainly never tried.',
+    },
+    {
+      q: 'Your boundary test fails at exactly the maximum. What do you check first?',
+      options: ['Rerun it until it passes', 'Delete the test', 'Whether the spec says the maximum is included', 'Raise the limit'],
+      answer: 2,
+      why: 'The spec is the oracle. If it says "up to and including", the product is wrong; if it is unclear, that is a finding to raise.',
+    },
+  ],
+  atWork: [
+    'Pick one form in your product with a number, length or date limit.',
+    'Find where the limit is written down. If nowhere, ask: that question is already a contribution.',
+    'Write its partitions and the two values at each edge in the ticket or PR.',
+    'Test those values (by hand is fine) before the feature ships.',
+    'Turn any edge that failed into an automated test so it stays fixed.',
+  ],
   learn: [
     { text: 'Explain why test count is not coverage', afterStep: 1 },
     { text: 'Split inputs into equivalence partitions', afterStep: 2 },
@@ -28,8 +55,8 @@ export const partitionsBoundaries: Lesson = {
       rail: 'Happy path',
       title: 'One test, all green',
       body: [
-        'You test the transfer screen of Kudi, a fintech app. The spec says a transfer must be between ₦100 and ₦500,000.',
-        'The test suite (lavender block) sends one request to the validator: ₦5,000. Kudi accepts it. Green.',
+        'You test the transfer screen of Kudi, a fintech app. The [[spec]] says a transfer must be between ₦100 and ₦500,000.',
+        'The test suite (lavender block) sends one [[test-case|test case]] to the validator: ₦5,000. Kudi accepts it. Green.',
       ],
       callout: { kind: 'key', text: 'A test compares what the app does with what the spec says it should do. The expected result comes from the requirement, never from the app.' },
       changed: ['1 test written', '₦5,000 accepted, as the spec says'],
@@ -56,7 +83,7 @@ export const partitionsBoundaries: Lesson = {
         'To feel safer you generate 50 random amounts. All 50 pass.',
         'The suite now takes about 15 seconds and you know almost nothing new: the tests pile up in the same valid range.',
       ],
-      callout: { kind: 'watch', text: 'Test count is not coverage. Fifty tests in one group tell you the same thing fifty times.' },
+      callout: { kind: 'watch', text: 'Test count is not [[coverage]]. Fifty tests in one group tell you the same thing fifty times.' },
       changed: ['Tests 1 → 50', 'Groups covered: still 1 of 3'],
       scene: { suite: { random: 50 }, operator: '<' },
       deep: {
@@ -77,11 +104,20 @@ export const partitionsBoundaries: Lesson = {
       title: 'Split the input into groups',
       body: [
         'Kudi should treat amounts in three groups the same way: too small (reject), valid (accept), too big (reject).',
-        'One test per group stands in for the whole group. That is equivalence partitioning.',
+        'One test per group stands in for the whole group. Each group is an [[partition|equivalence partition]].',
       ],
       callout: { kind: 'try', text: 'Use the console under the scene. Can you find an amount where Kudi disagrees with the spec before step 4 shows you?' },
       changed: ['Tests 50 → 3', 'Groups covered: 3 of 3'],
       scene: { suite: THREE, zones: true, operator: '<' },
+      predict: {
+        question: 'Kudi has a bug somewhere in its limits. Will these three tests (₦50, ₦5,000, ₦900,000) catch it?',
+        options: [
+          { id: 'yes', label: 'Yes, they cover every group' },
+          { id: 'no', label: 'No, something can still slip through' },
+        ],
+        answer: 'no',
+        explain: 'All three pass. Covering every group is necessary but not enough: a bug can hide right on the line between two groups.',
+      },
       deep: {
         title: 'Finding every partition, not just three',
         blocks: [
@@ -112,7 +148,7 @@ export const partitionsBoundaries: Lesson = {
       title: 'A customer hits the limit',
       body: [
         'A customer tries to send exactly ₦500,000, the limit the app advertises. Kudi answers "Amount exceeds limit".',
-        'Support tickets pile up. Every test in your suite is still green.',
+        'Support tickets pile up. Every test in your suite is still green. This is an [[escaped-bug|escaped bug]].',
       ],
       callout: { kind: 'watch', text: 'A green pipeline does not prove the product is defect-free. It proves the inputs you chose behave.' },
       changed: ['Escaped bugs 0 → 1', 'Found by a customer, not by a test'],
@@ -134,12 +170,23 @@ export const partitionsBoundaries: Lesson = {
       title: 'Test the edges',
       body: [
         'Bugs cluster where a range starts and ends, because that is where code compares numbers.',
-        'For each edge, test the last value on one side and the first on the other: ₦99 and ₦100, ₦500,000 and ₦500,001.',
-        '₦500,000 fails. Your suite now catches what the customer found.',
+        'For each edge, test the last value on one side and the first on the other: ₦99 and ₦100, ₦500,000 and ₦500,001. These are [[boundary|boundary values]].',
+        'Your suite now has seven tests. One of them catches what the customer found.',
       ],
       callout: { kind: 'key', text: 'Boundary value analysis: for every edge, test the value on it and the value just past it.' },
       changed: ['Tests 3 → 7', 'Edges covered: 4 of 4', '₦500,000 fails in the test run'],
       scene: { suite: ALL, zones: true, incident: true, operator: '<' },
+      predict: {
+        question: 'Before you look: which of the four new edge tests fails?',
+        options: [
+          { id: '99', label: '₦99' },
+          { id: '100', label: '₦100' },
+          { id: '500000', label: '₦500,000' },
+          { id: '500001', label: '₦500,001' },
+        ],
+        answer: '500000',
+        explain: '₦500,000 is allowed by the spec ("up to and including"), but Kudi rejects it. The bug sits exactly on the edge, which is why random and partition tests missed it.',
+      },
       deep: {
         title: 'Two-value vs three-value boundaries',
         blocks: [
@@ -155,7 +202,7 @@ export const partitionsBoundaries: Lesson = {
       role: 'fix',
       rail: 'Root cause',
       title: 'One character',
-      body: ['The failing boundary points straight at the comparison. The developer wrote "less than" where the spec says "up to and including".'],
+      body: ['The failing boundary points straight at the comparison. The developer wrote "less than" where the spec says "up to and including": a classic [[off-by-one|off-by-one error]].'],
       code: '// validator.ts\nconst valid =\n  amount >= MIN &&\n  amount < MAX;   // spec: up to and including MAX',
       after: 'Flip the operator on the validator and rerun. Green, and this time green means something.',
       callout: { kind: 'key', text: 'A failure is a lead. Check the product, the test, the environment and the data before deciding which one is wrong.' },
@@ -169,7 +216,7 @@ export const partitionsBoundaries: Lesson = {
           { type: 'p', text: 'A failure could be the product, the test, the environment or the data. **Test?** The expected value matches the spec. **Environment?** Same failure locally and in production. **Data?** The balance covers ₦500,000. That leaves **product**.' },
           { type: 'p', text: 'Off-by-one errors are common because specs say "up to", "maximum" or "not more than", all inclusive, while developers reach for `<` by habit.' },
           { type: 'h', text: 'Pin it' },
-          { type: 'p', text: 'Keep the ₦500,000 case forever. A test that once caught a real bug is a regression test: it stops the same mistake coming back.' },
+          { type: 'p', text: 'Keep the ₦500,000 case forever. A test that once caught a real bug becomes a [[regression|regression test]]: it stops the same mistake coming back.' },
         ],
       },
     },
