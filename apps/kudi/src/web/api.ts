@@ -1,4 +1,5 @@
-export type Me = { name: string; email: string; balance: number };
+export type Me = { name: string; email: string; balance: number; tier: 'basic' | 'plus' };
+export type CardState = 'active' | 'frozen' | 'blocked';
 export type Transfer = { id: number; direction: 'out' | 'in'; counterparty: string; amount: number; createdAt: string };
 export type ApiError = { status: number; error: string };
 
@@ -20,7 +21,9 @@ export const api = {
   logout: () => call<null>('DELETE', '/sessions'),
   me: () => call<Me>('GET', '/me'),
   history: () => call<Transfer[]>('GET', '/transfers'),
-  send: (to: string, amount: number) => call<{ id: number; balance: number }>('POST', '/transfers', { to, amount }),
+  send: (to: string, amount: number, express = false) => call<{ id: number; balance: number; fee: number }>('POST', '/transfers', { to, amount, express }),
+  card: () => call<{ state: CardState }>('GET', '/card'),
+  cardAction: (action: 'freeze' | 'unfreeze' | 'block') => call<{ state: CardState }>('POST', `/card/${action}`),
 };
 
 export type Api = typeof api;

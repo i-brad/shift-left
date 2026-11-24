@@ -1,8 +1,7 @@
 'use client';
 
 import { IsoBox, IsoScene, IsoText, Label, Person, Pipe, Plate, Server, TopQuad, labelWidth, project, type LabelTone, type Point3 } from '@shift-left/iso';
-import type { StepEval } from '@shift-left/lessons';
-import type { SceneState } from '@shift-left/lessons';
+import type { BoundaryEval, BoundaryScene as BoundarySceneState } from '@shift-left/lessons';
 
 const naira = (v: number) => `${v < 0 ? '-' : ''}₦${Math.abs(v).toLocaleString('en-NG')}`;
 
@@ -37,7 +36,7 @@ function packPins(pins: Omit<Pin, 'h'>[]): Pin[] {
     });
 }
 
-export function BoundaryScene({ evalState, scene, reducedMotion, hideResults = false }: { evalState: StepEval; scene: SceneState; reducedMotion: boolean; hideResults?: boolean }) {
+export function BoundaryScene({ evalState, scene, reducedMotion, hideResults = false }: { evalState: BoundaryEval; scene: BoundarySceneState; reducedMotion: boolean; hideResults?: boolean }) {
   const { model, run, you, isRandom, escapedBugs } = evalState;
   const X = (v: number) => rulerX(v, model.min, model.max);
   const failing = run.metrics.failing > 0 && !hideResults;

@@ -15,4 +15,9 @@ export const glossary: Record<string, GlossaryEntry> = {
   regression: { term: 'Regression test', def: 'A test you keep running so a bug that was fixed can never quietly come back.' },
   'test-level': { term: 'Test level', def: 'Where a test runs: unit (one function), API (one endpoint), or UI/end-to-end (the whole app in a browser).' },
   'escaped-bug': { term: 'Escaped bug', def: 'A bug that got past every test and was found by a user in production.' },
+  'decision-table': { term: 'Decision table', def: 'A grid listing every combination of conditions and the result each should give. Used when several inputs decide one outcome together.' },
+  state: { term: 'State', def: 'The condition something is in right now, like a card being active, frozen or blocked. What an action does depends on it.' },
+  'state-transition': { term: 'State transition', def: 'A move from one state to another caused by an action, like freeze taking a card from active to frozen.' },
+  'valid-transition': { term: 'Valid transition', def: 'A move the spec allows. Tests check it happens and lands in the right state.' },
+  'invalid-transition': { term: 'Invalid transition', def: 'A move the spec forbids. Tests check the system refuses it and the state does not change.' },
 };

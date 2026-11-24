@@ -10,6 +10,14 @@ export const BUGS = {
     lesson: 'partitions-boundaries',
     summary: 'The maximum transfer uses < instead of <=, so exactly ₦500,000 is rejected.',
   },
+  'fee-express-first': {
+    lesson: 'decision-tables',
+    summary: 'The fee rules check express before tier, so Plus customers pay the Basic express fee (₦100 instead of ₦50).',
+  },
+  'card-unblock': {
+    lesson: 'state-transitions',
+    summary: 'Unfreeze only checks "not active", so a blocked card can be reactivated.',
+  },
 } as const;
 
 export type BugName = keyof typeof BUGS;

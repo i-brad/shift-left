@@ -60,7 +60,7 @@ export const partitionsBoundaries: Lesson = {
       ],
       callout: { kind: 'key', text: 'A test compares what the app does with what the spec says it should do. The expected result comes from the requirement, never from the app.' },
       changed: ['1 test written', '₦5,000 accepted, as the spec says'],
-      scene: { suite: [5000], operator: '<' },
+      scene: { kind: 'boundaries', suite: [5000], operator: '<' },
       deep: {
         title: 'Where does "expected" come from?',
         blocks: [
@@ -85,7 +85,7 @@ export const partitionsBoundaries: Lesson = {
       ],
       callout: { kind: 'watch', text: 'Test count is not [[coverage]]. Fifty tests in one group tell you the same thing fifty times.' },
       changed: ['Tests 1 → 50', 'Groups covered: still 1 of 3'],
-      scene: { suite: { random: 50 }, operator: '<' },
+      scene: { kind: 'boundaries', suite: { random: 50 }, operator: '<' },
       deep: {
         title: 'The maths of random testing',
         blocks: [
@@ -108,7 +108,7 @@ export const partitionsBoundaries: Lesson = {
       ],
       callout: { kind: 'try', text: 'Use the console under the scene. Can you find an amount where Kudi disagrees with the spec before step 4 shows you?' },
       changed: ['Tests 50 → 3', 'Groups covered: 3 of 3'],
-      scene: { suite: THREE, zones: true, operator: '<' },
+      scene: { kind: 'boundaries', suite: THREE, zones: true, operator: '<' },
       predict: {
         question: 'Kudi has a bug somewhere in its limits. Will these three tests (₦50, ₦5,000, ₦900,000) catch it?',
         options: [
@@ -152,7 +152,7 @@ export const partitionsBoundaries: Lesson = {
       ],
       callout: { kind: 'watch', text: 'A green pipeline does not prove the product is defect-free. It proves the inputs you chose behave.' },
       changed: ['Escaped bugs 0 → 1', 'Found by a customer, not by a test'],
-      scene: { suite: THREE, zones: true, incident: true, operator: '<' },
+      scene: { kind: 'boundaries', suite: THREE, zones: true, incident: true, operator: '<' },
       goal: { text: 'Reproduce it: run ₦500,000 in the console below the scene.', check: { kind: 'probe-fails', amount: 500_000 } },
       deep: {
         title: 'Writing the defect report',
@@ -175,7 +175,7 @@ export const partitionsBoundaries: Lesson = {
       ],
       callout: { kind: 'key', text: 'Boundary value analysis: for every edge, test the value on it and the value just past it.' },
       changed: ['Tests 3 → 7', 'Edges covered: 4 of 4', '₦500,000 fails in the test run'],
-      scene: { suite: ALL, zones: true, incident: true, operator: '<' },
+      scene: { kind: 'boundaries', suite: ALL, zones: true, incident: true, operator: '<' },
       predict: {
         question: 'Before you look: which of the four new edge tests fails?',
         options: [
@@ -207,7 +207,7 @@ export const partitionsBoundaries: Lesson = {
       after: 'Flip the operator on the validator and rerun. Green, and this time green means something.',
       callout: { kind: 'key', text: 'A failure is a lead. Check the product, the test, the environment and the data before deciding which one is wrong.' },
       changed: ['< changed to <=', 'All 7 tests pass', 'Escaped bugs 1 → 0'],
-      scene: { suite: ALL, zones: true, incident: true, operator: 'learner' },
+      scene: { kind: 'boundaries', suite: ALL, zones: true, incident: true, operator: 'learner' },
       goal: { text: 'Use the switch on the validator to fix the comparison so all 7 tests pass.', check: { kind: 'all-pass' } },
       deep: {
         title: 'Triage: who is actually wrong?',
@@ -230,7 +230,7 @@ export const partitionsBoundaries: Lesson = {
       after: 'Adding a new edge later is one line in the table. You will write exactly this in the Practice exercise.',
       callout: { kind: 'key', text: 'Put the cases where they are cheapest to run: the API, not the browser. Keep one UI test to check the message shows.' },
       changed: ['7 cases in one test file', 'Runs in CI on every pull request'],
-      scene: { suite: ALL, zones: true, incident: true, ci: true, operator: '<=' },
+      scene: { kind: 'boundaries', suite: ALL, zones: true, incident: true, ci: true, operator: '<=' },
       deep: {
         title: 'Which layer should these 7 cases live in?',
         blocks: [
@@ -254,7 +254,7 @@ export const partitionsBoundaries: Lesson = {
       ],
       after: 'Next: open the Practice exercise and write these tests against the real Kudi API.',
       changed: [],
-      scene: { suite: ALL, zones: true, incident: true, ci: true, operator: '<=' },
+      scene: { kind: 'boundaries', suite: ALL, zones: true, incident: true, ci: true, operator: '<=' },
       deep: {
         title: 'Check yourself: the Stage 2 exit gate',
         blocks: [

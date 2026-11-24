@@ -19,8 +19,8 @@ export const course: CourseModule[] = [
   {
     n: 2, title: 'Test design', color: '#9fd08a', lessons: [
       { id: 'partitions-boundaries', title: 'Partitions and boundaries', ctfl: ['FL-4.2.1', 'FL-4.2.2'], built: true },
-      { id: 'decision-tables', title: 'Decision tables', ctfl: ['FL-4.2.3'], built: false },
-      { id: 'state-transitions', title: 'State transitions', ctfl: ['FL-4.2.4'], built: false },
+      { id: 'decision-tables', title: 'Decision tables', ctfl: ['FL-4.2.3'], built: true },
+      { id: 'state-transitions', title: 'State transitions', ctfl: ['FL-4.2.4'], built: true },
       { id: 'coverage', title: 'Statement and branch coverage', ctfl: ['FL-4.3'], built: false },
       { id: 'exploratory', title: 'Exploratory testing', ctfl: ['FL-4.4'], built: false },
       { id: 'acceptance-criteria', title: 'Acceptance criteria and ATDD', ctfl: ['FL-4.5'], built: false },

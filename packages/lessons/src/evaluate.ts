@@ -1,7 +1,57 @@
-import { DEFAULT_MODEL, probe, randomAmounts, run, type BoundaryModel, type BoundaryRun, type MaxOperator, type ProbeResult } from '@shift-left/sim';
-import type { GoalCheck, Step } from './types';
+import {
+  ALL_COMBOS,
+  ALL_TRANSITIONS,
+  BAND_AMOUNT,
+  DEFAULT_MODEL,
+  VALID_TRANSITIONS,
+  bandOf,
+  codeFee,
+  codeNext,
+  comboId,
+  probe,
+  randomAmounts,
+  ruleOf,
+  run,
+  runCard,
+  runFees,
+  specFee,
+  specNext,
+  transitionId,
+  type BoundaryModel,
+  type BoundaryRun,
+  type CardRun,
+  type CardState,
+  type FeeCombo,
+  type FeeOrder,
+  type FeeRun,
+  type MaxOperator,
+  type ProbeResult,
+  type Tier,
+  type Transition,
+} from '@shift-left/sim';
+import type { BoundaryScene, CardScene, FeeScene, GoalCheck, Step } from './types';
 
-export type StepEval = {
+/** Everything the learner has done in the lesson. One shape for all scenes; each scene reads its part. */
+export type Learner = {
+  operator: MaxOperator;
+  probe: number | null;
+  fee: { tier: Tier; amount: number; express: boolean };
+  feeOrder: FeeOrder;
+  card: { state: CardState; tried: Transition[] };
+  cardFixed: boolean;
+};
+
+export const initialLearner = (): Learner => ({
+  operator: '<',
+  probe: null,
+  fee: { tier: 'basic', amount: 2000, express: false },
+  feeOrder: 'express-first',
+  card: { state: 'active', tried: [] },
+  cardFixed: false,
+});
+
+export type BoundaryEval = {
+  kind: 'boundaries';
   model: BoundaryModel;
   suite: number[];
   isRandom: boolean;
@@ -11,25 +61,100 @@ export type StepEval = {
   goalMet: boolean;
 };
 
-/** Everything the player needs for one step, given the learner's input. Pure, so it is unit-tested. */
-export function evaluateStep(step: Step, learner: { operator: MaxOperator; probe: number | null }): StepEval {
-  const operator = step.scene.operator === 'learner' ? learner.operator : step.scene.operator;
-  const model: BoundaryModel = { ...DEFAULT_MODEL, maxOperator: operator };
-  const isRandom = !Array.isArray(step.scene.suite);
-  const suite = Array.isArray(step.scene.suite)
-    ? [...(step.scene.suite as readonly number[])]
-    : randomAmounts((step.scene.suite as { random: number }).random);
-  const result = run(model, suite);
-  const you = learner.probe == null ? null : probe(model, learner.probe);
-  const escapedBugs = step.scene.incident && operator === '<' ? 1 : 0;
-  return { model, suite, isRandom, run: result, you, escapedBugs, goalMet: step.goal ? goalMet(step.goal.check, result, you) : true };
-}
+export type FeeEval = {
+  kind: 'fees';
+  order: FeeOrder;
+  run: FeeRun;
+  you: { combo: FeeCombo; id: string; expected: number; actual: number; passed: boolean };
+  escapedBugs: number;
+  goalMet: boolean;
+};
 
-export function goalMet(check: GoalCheck, result: BoundaryRun, you: ProbeResult | null): boolean {
-  switch (check.kind) {
-    case 'probe-fails':
-      return you != null && you.amount === check.amount && !you.passed;
-    case 'all-pass':
-      return result.metrics.failing === 0;
+export type CardEval = {
+  kind: 'card';
+  bug: boolean;
+  run: CardRun;
+  /** The learner's own attempts, with results. */
+  tried: (Transition & { id: string; expected: CardState | null; actual: CardState | null; passed: boolean })[];
+  state: CardState;
+  escapedBugs: number;
+  goalMet: boolean;
+};
+
+export type StepEval = BoundaryEval | FeeEval | CardEval;
+
+export function evaluateStep(step: Step, learner: Learner): StepEval {
+  switch (step.scene.kind) {
+    case 'boundaries':
+      return evalBoundaries(step, step.scene, learner);
+    case 'fees':
+      return evalFees(step, step.scene, learner);
+    case 'card':
+      return evalCard(step, step.scene, learner);
   }
 }
+
+function evalBoundaries(step: Step, scene: BoundaryScene, learner: Learner): BoundaryEval {
+  const operator = scene.operator === 'learner' ? learner.operator : scene.operator;
+  const model: BoundaryModel = { ...DEFAULT_MODEL, maxOperator: operator };
+  const isRandom = !Array.isArray(scene.suite);
+  const suite = Array.isArray(scene.suite) ? [...(scene.suite as readonly number[])] : randomAmounts((scene.suite as { random: number }).random);
+  const result = run(model, suite);
+  const you = learner.probe == null ? null : probe(model, learner.probe);
+  const escapedBugs = scene.incident && operator === '<' ? 1 : 0;
+  const goalMet = !step.goal || checkGoal(step.goal.check, { allPass: result.metrics.failing === 0, probe: you });
+  return { kind: 'boundaries', model, suite, isRandom, run: result, you, escapedBugs, goalMet };
+}
+
+function evalFees(step: Step, scene: FeeScene, learner: Learner): FeeEval {
+  const order = scene.order === 'learner' ? learner.feeOrder : scene.order;
+  const combos = scene.suite === 'all' ? ALL_COMBOS : ALL_COMBOS.filter((c) => (scene.suite as readonly string[]).includes(comboId(c)));
+  const result = runFees({ order }, combos);
+  const combo: FeeCombo = { tier: learner.fee.tier, band: bandOf(learner.fee.amount), express: learner.fee.express };
+  const expected = specFee(combo);
+  const actual = codeFee({ order }, combo);
+  const you = { combo, id: comboId(combo), expected, actual, passed: expected === actual };
+  const escapedBugs = scene.incident && order === 'express-first' ? 1 : 0;
+  const goalMet = !step.goal || checkGoal(step.goal.check, { allPass: result.metrics.failing === 0, feeYouFails: !you.passed });
+  return { kind: 'fees', order, run: result, you, escapedBugs, goalMet };
+}
+
+function evalCard(step: Step, scene: CardScene, learner: Learner): CardEval {
+  const bug = scene.bug === 'learner' ? !learner.cardFixed : scene.bug;
+  const ts = scene.suite === 'all' ? ALL_TRANSITIONS : scene.suite === 'valid' ? VALID_TRANSITIONS : ALL_TRANSITIONS.filter((t) => (scene.suite as readonly string[]).includes(transitionId(t)));
+  const result = runCard({ bug }, ts);
+  const tried = learner.card.tried.map((t) => {
+    const expected = specNext(t);
+    const actual = codeNext({ bug }, t);
+    return { ...t, id: transitionId(t), expected, actual, passed: expected === actual };
+  });
+  const escapedBugs = scene.incident && bug ? 1 : 0;
+  const goalMet = !step.goal || checkGoal(step.goal.check, { allPass: result.metrics.failing === 0, cardWrong: new Set(tried.filter((t) => !t.passed).map((t) => t.id)) });
+  return { kind: 'card', bug, run: result, tried, state: learner.card.state, escapedBugs, goalMet };
+}
+
+type GoalFacts = { allPass: boolean; probe?: ProbeResult | null; feeYouFails?: boolean; cardWrong?: Set<string> };
+
+export function checkGoal(check: GoalCheck, f: GoalFacts): boolean {
+  switch (check.kind) {
+    case 'probe-fails':
+      return f.probe != null && f.probe.amount === check.amount && !f.probe.passed;
+    case 'all-pass':
+      return f.allPass;
+    case 'fee-fails':
+      return !!f.feeYouFails;
+    case 'card-wrong':
+      return !!f.cardWrong?.has(check.id);
+  }
+}
+
+/** Learner presses a card button: records the attempt and moves the card if the code allows it. */
+export function attemptCard(learner: Learner, action: Transition['action'], bug: boolean): Learner {
+  const t: Transition = { from: learner.card.state, action };
+  const next = codeNext({ bug }, t);
+  return { ...learner, card: { state: next ?? learner.card.state, tried: [...learner.card.tried, t] } };
+}
+
+/** Representative amount for a fee band, for the learner's amount switch. */
+export const feeAmountFor = (band: 'low' | 'high') => BAND_AMOUNT[band];
+export { ruleOf };

@@ -3,11 +3,11 @@ import { DatabaseSync } from 'node:sqlite';
 
 /** Seed data, matching SPEC.md → Accounts. */
 export const SEED_USERS = [
-  { name: 'Ada', email: 'ada@kudi.test', password: 'kudi-ada-pass', balance: 600_000 },
-  { name: 'Tunde', email: 'tunde@kudi.test', password: 'kudi-tunde-pass', balance: 20_000 },
+  { name: 'Ada', email: 'ada@kudi.test', password: 'kudi-ada-pass', balance: 600_000, tier: 'plus' },
+  { name: 'Tunde', email: 'tunde@kudi.test', password: 'kudi-tunde-pass', balance: 20_000, tier: 'basic' },
 ] as const;
 
-export type User = { id: number; name: string; email: string; balance: number };
+export type User = { id: number; name: string; email: string; balance: number; tier: 'basic' | 'plus' };
 
 export function hashPassword(password: string): string {
   const salt = randomBytes(16).toString('hex');
@@ -34,7 +34,8 @@ export function openDb(path: string) {
       name TEXT NOT NULL,
       email TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL,
-      balance INTEGER NOT NULL CHECK (balance >= 0)
+      balance INTEGER NOT NULL CHECK (balance >= 0),
+      tier TEXT NOT NULL DEFAULT 'basic' CHECK (tier IN ('basic', 'plus'))
     );
     CREATE TABLE IF NOT EXISTS sessions (
       token TEXT PRIMARY KEY,
@@ -45,21 +46,30 @@ export function openDb(path: string) {
       from_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       to_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       amount INTEGER NOT NULL,
+      fee INTEGER NOT NULL DEFAULT 0,
+      express INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    );
+    CREATE TABLE IF NOT EXISTS cards (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      state TEXT NOT NULL DEFAULT 'active' CHECK (state IN ('active', 'frozen', 'blocked'))
     );
   `);
 
   const api = {
     reset() {
-      db.exec('DELETE FROM transfers; DELETE FROM sessions; DELETE FROM users;');
-      const insert = db.prepare('INSERT INTO users (name, email, password, balance) VALUES (?, ?, ?, ?)');
-      for (const u of SEED_USERS) insert.run(u.name, u.email, hashPassword(u.password), u.balance);
+      db.exec('DELETE FROM cards; DELETE FROM transfers; DELETE FROM sessions; DELETE FROM users;');
+      const insert = db.prepare('INSERT INTO users (name, email, password, balance, tier) VALUES (?, ?, ?, ?, ?)');
+      for (const u of SEED_USERS) {
+        const r = insert.run(u.name, u.email, hashPassword(u.password), u.balance, u.tier);
+        db.prepare('INSERT INTO cards (user_id) VALUES (?)').run(Number(r.lastInsertRowid));
+      }
     },
     userByEmail(email: string) {
-      return db.prepare('SELECT id, name, email, balance, password FROM users WHERE email = ?').get(email) as (User & { password: string }) | undefined;
+      return db.prepare('SELECT id, name, email, balance, tier, password FROM users WHERE email = ?').get(email) as (User & { password: string }) | undefined;
     },
     userBySession(token: string) {
-      return db.prepare('SELECT u.id, u.name, u.email, u.balance FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?').get(token) as User | undefined;
+      return db.prepare('SELECT u.id, u.name, u.email, u.balance, u.tier FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?').get(token) as User | undefined;
     },
     createSession(userId: number) {
       const token = randomBytes(24).toString('hex');
@@ -69,13 +79,13 @@ export function openDb(path: string) {
     deleteSession(token: string) {
       db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
     },
-    /** Moves money in one transaction; returns the sender's new balance. */
-    transfer(fromId: number, toId: number, amount: number) {
+    /** Moves money in one transaction: the sender pays amount + fee; returns the sender's new balance. */
+    transfer(fromId: number, toId: number, amount: number, fee = 0, express = false) {
       db.exec('BEGIN');
       try {
-        db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(amount, fromId);
+        db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(amount + fee, fromId);
         db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(amount, toId);
-        const r = db.prepare('INSERT INTO transfers (from_id, to_id, amount) VALUES (?, ?, ?)').run(fromId, toId, amount);
+        const r = db.prepare('INSERT INTO transfers (from_id, to_id, amount, fee, express) VALUES (?, ?, ?, ?, ?)').run(fromId, toId, amount, fee, express ? 1 : 0);
         db.exec('COMMIT');
         const balance = (db.prepare('SELECT balance FROM users WHERE id = ?').get(fromId) as { balance: number }).balance;
         return { id: Number(r.lastInsertRowid), balance };
@@ -83,6 +93,12 @@ export function openDb(path: string) {
         db.exec('ROLLBACK');
         throw e;
       }
+    },
+    cardState(userId: number) {
+      return (db.prepare('SELECT state FROM cards WHERE user_id = ?').get(userId) as { state: 'active' | 'frozen' | 'blocked' }).state;
+    },
+    setCardState(userId: number, state: string) {
+      db.prepare('UPDATE cards SET state = ? WHERE user_id = ?').run(state, userId);
     },
     history(userId: number) {
       return db

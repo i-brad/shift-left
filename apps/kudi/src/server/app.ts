@@ -1,6 +1,8 @@
 import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { noBugs, type Bugs } from '../bugs';
+import { CARD_ACTIONS, nextCardState, type CardAction } from '../domain/card';
+import { calculateFee } from '../domain/fees';
 import { validateAmount, type TransferError } from '../domain/transfer';
 import { checkPassword, type Db, type User } from './db';
 
@@ -56,11 +58,32 @@ export function createApp({ db, bugs = noBugs, testRoutes = true }: { db: Db; bu
   });
 
   app.get('/me', (c) => {
-    const { name, email, balance } = c.get('user');
-    return c.json({ name, email, balance });
+    const { name, email, balance, tier } = c.get('user');
+    return c.json({ name, email, balance, tier });
   });
 
   app.get('/transfers', (c) => c.json(db.history(c.get('user').id)));
+
+  app.get('/fees', (c) => {
+    const amount = Number(c.req.query('amount'));
+    const express = c.req.query('express') === 'true';
+    const check = validateAmount(amount, bugs);
+    if (!check.ok) return fail(c, check.error);
+    return c.json({ fee: calculateFee(c.get('user').tier, check.amount, express, bugs) });
+  });
+
+  app.get('/card', (c) => c.json({ state: db.cardState(c.get('user').id) }));
+
+  app.post('/card/:action', (c) => {
+    const action = c.req.param('action') as CardAction;
+    if (!CARD_ACTIONS.includes(action)) return c.json({ error: 'UNKNOWN_ACTION' }, 404);
+    const me = c.get('user');
+    const from = db.cardState(me.id);
+    const to = nextCardState(from, action, bugs);
+    if (!to) return c.json({ error: 'INVALID_TRANSITION', state: from }, 409);
+    db.setCardState(me.id, to);
+    return c.json({ state: to });
+  });
 
   app.post('/transfers', async (c) => {
     const me = c.get('user');
@@ -69,14 +92,16 @@ export function createApp({ db, bugs = noBugs, testRoutes = true }: { db: Db; bu
 
     const amount = validateAmount(body.amount, bugs);
     if (!amount.ok) return fail(c, amount.error);
-    if (amount.amount > me.balance) return fail(c, 'INSUFFICIENT_FUNDS');
+    const express = body.express === true;
+    const fee = calculateFee(me.tier, amount.amount, express, bugs);
+    if (amount.amount + fee > me.balance) return fail(c, 'INSUFFICIENT_FUNDS');
 
     const to = typeof body.to === 'string' ? db.userByEmail(body.to.trim().toLowerCase()) : undefined;
     if (!to) return fail(c, 'RECIPIENT_NOT_FOUND');
     if (to.id === me.id) return fail(c, 'SAME_ACCOUNT');
 
-    const { id, balance } = db.transfer(me.id, to.id, amount.amount);
-    return c.json({ id, to: to.email, amount: amount.amount, balance }, 201);
+    const { id, balance } = db.transfer(me.id, to.id, amount.amount, fee, express);
+    return c.json({ id, to: to.email, amount: amount.amount, fee, express, balance }, 201);
   });
 
   return app;

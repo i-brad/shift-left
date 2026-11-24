@@ -1,0 +1,6 @@
+{
+  "title": "04 · State transitions: test the card",
+  "lesson": "state-transitions",
+  "bug": "card-unblock",
+  "ctfl": ["FL-4.2.4"]
+}

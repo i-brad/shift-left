@@ -149,3 +149,7 @@ th { font-size: 11.5px; text-transform: uppercase; color: var(--sl-mute); }
 .check-opt[data-result='wrong'] { background: var(--sl-rose); }
 .check-why { margin: 4px 0 0; font-size: 13.5px; }
 .atwork ol { margin: 0; padding-left: 20px; font-size: 13.5px; display: grid; gap: 6px; }
+
+.switches, .card-buttons { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.card-buttons span { font-size: 13px; margin-right: 4px; }
+.switches .sl-toggle button { font-size: 13px; padding: 6px 10px; }

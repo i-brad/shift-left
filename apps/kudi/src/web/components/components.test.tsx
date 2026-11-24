@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { AmountInput, parseAmount } from './AmountInput';
+import { CardPanel } from './CardPanel';
 import { TransferForm } from './TransferForm';
 
 describe('parseAmount', () => {
@@ -38,7 +39,7 @@ describe('TransferForm', () => {
     const onSend = vi.fn().mockResolvedValue({});
     render(<TransferForm onSend={onSend} />);
     await fill('tunde@kudi.test', '5,000');
-    expect(onSend).toHaveBeenCalledWith('tunde@kudi.test', 5000);
+    expect(onSend).toHaveBeenCalledWith('tunde@kudi.test', 5000, false);
     expect(await screen.findByRole('status')).toHaveTextContent('Sent ₦5,000 to tunde@kudi.test');
   });
 
@@ -65,5 +66,33 @@ describe('TransferForm', () => {
     await userEvent.dblClick(screen.getByRole('button', { name: 'Send' }));
     resolve();
     expect(onSend).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('TransferForm express', () => {
+  it('sends express and shows the fee', async () => {
+    const onSend = vi.fn().mockResolvedValue({ fee: 100 });
+    render(<TransferForm onSend={onSend} />);
+    await userEvent.type(screen.getByLabelText('Recipient email'), 'ada@kudi.test');
+    await userEvent.type(screen.getByLabelText('Amount'), '1000');
+    await userEvent.click(screen.getByLabelText('Express delivery'));
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(onSend).toHaveBeenCalledWith('ada@kudi.test', 1000, true);
+    expect(await screen.findByRole('status')).toHaveTextContent('Sent ₦1,000 to ada@kudi.test (fee ₦100)');
+  });
+});
+
+describe('CardPanel', () => {
+  it('only offers actions that fit the state', () => {
+    const { rerender } = render(<CardPanel state="active" onAction={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Unfreeze' })).toBeNull();
+    rerender(<CardPanel state="blocked" onAction={vi.fn()} />);
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+  });
+
+  it('explains a refused action', async () => {
+    render(<CardPanel state="active" onAction={vi.fn().mockRejectedValue({ status: 409, error: 'INVALID_TRANSITION' })} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Freeze' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent("You can't freeze a active card");
   });
 });

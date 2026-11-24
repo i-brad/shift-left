@@ -1,15 +1,13 @@
 'use client';
 
-import { evaluateStep, type Lesson } from '@shift-left/lessons';
-import type { MaxOperator } from '@shift-left/sim';
-import { Button, Callout, Chip, Metric, StepRail, Toggle, type Tone } from '@shift-left/ui';
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { BoundaryScene } from './BoundaryScene';
+import { evaluateStep, initialLearner, type Learner, type Lesson } from '@shift-left/lessons';
+import { Button, Callout, Chip, Metric, StepRail } from '@shift-left/ui';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { SceneControls, SceneView, legendFor, metricsFor } from './scenes';
 import { DeepDive } from './DeepDive';
 import { AtWork, LessonCheck, PredictCard } from './Learning';
 import { RichText } from './RichText';
 
-const naira = (v: number) => `${v < 0 ? '-' : ''}₦${Math.abs(v).toLocaleString('en-NG')}`;
 const roleLabel = { setup: 'SETUP', problem: 'PROBLEM', fix: 'FIX', recap: 'RECAP' } as const;
 
 type Saved = { met: string[]; furthest: number; predictions?: Record<string, string> };
@@ -33,10 +31,8 @@ function save(id: string, s: Saved) {
 
 export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTitle: string }) {
   const [cur, setCur] = useState(0);
-  const [operator, setOperator] = useState<MaxOperator>('<');
-  const [probe, setProbe] = useState<number | null>(null);
-  const [amount, setAmount] = useState('');
-  const [inputError, setInputError] = useState<string | null>(null);
+  const [learner, setLearnerState] = useState<Learner>(initialLearner);
+  const setLearner = useCallback((f: (l: Learner) => Learner) => setLearnerState(f), []);
   const [met, setMet] = useState<Set<string>>(new Set());
   const [predictions, setPredictions] = useState<Record<string, string>>({});
   const [deepOpen, setDeepOpen] = useState(false);
@@ -45,7 +41,7 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
   const deepRef = useRef<HTMLDetailsElement>(null);
 
   const step = lesson.steps[cur]!;
-  const ev = useMemo(() => evaluateStep(step, { operator, probe }), [step, operator, probe]);
+  const ev = useMemo(() => evaluateStep(step, learner), [step, learner]);
 
   // Restore progress and the step from the URL hash (#step-3).
   useEffect(() => {
@@ -92,8 +88,7 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
     (i: number) => {
       if (i < 0 || i >= lesson.steps.length || isLocked(i)) return;
       setCur(i);
-      setProbe(null);
-      setAmount('');
+      setLearnerState((l) => ({ ...l, probe: null }));
       setAnimKey((k) => k + 1);
       history.replaceState(null, '', `#step-${i + 1}`);
     },
@@ -120,26 +115,7 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
     return () => window.removeEventListener('keydown', onKey);
   }, [cur, canNext, go, reducedMotion]);
 
-  const runProbe = (e: FormEvent) => {
-    e.preventDefault();
-    const raw = amount.trim().replace(/[₦,\s]/g, '');
-    const n = Number(raw);
-    if (!raw || !Number.isFinite(n)) {
-      setInputError('Enter an amount in naira, like 250000.');
-      return;
-    }
-    setInputError(null);
-    setProbe(Math.round(n));
-  };
-
-  const m = ev.run.metrics;
-  const metrics: { label: string; value: string | number; tone: Tone }[] = [
-    { label: 'Tests', value: m.tests, tone: m.failing > 0 && predicted ? 'bad' : 'neutral' },
-    { label: 'Suite time', value: `${m.suiteSeconds} s`, tone: 'neutral' },
-    { label: 'Groups covered', value: `${m.groupsCovered} / 3`, tone: m.groupsCovered === 3 ? 'good' : 'neutral' },
-    { label: 'Edges covered', value: `${m.edgesCovered} / 4`, tone: m.edgesCovered === 4 ? 'good' : 'neutral' },
-    { label: 'Escaped bugs', value: ev.escapedBugs, tone: ev.escapedBugs > 0 ? 'bad' : 'neutral' },
-  ];
+  const metrics = metricsFor(ev, predicted);
 
   const learnt = lesson.learn.map((l) => ({ ...l, done: cur >= l.afterStep }));
 
@@ -170,45 +146,18 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
 
         <section className="scene" aria-label="Interactive scene">
           <div className={`fig ${reducedMotion ? '' : 'anim'}`} key={animKey}>
-            <BoundaryScene evalState={ev} scene={step.scene} reducedMotion={reducedMotion} hideResults={!predicted} />
+            <SceneView ev={ev} scene={step.scene} reducedMotion={reducedMotion} hideResults={!predicted} />
           </div>
-          <div className="controls">
-            <form className="console" onSubmit={runProbe}>
-              <label htmlFor="amount">Try an amount</label>
-              <div className="amt">
-                <span aria-hidden="true">₦</span>
-                <input id="amount" inputMode="numeric" autoComplete="off" placeholder="500000" value={amount} onChange={(e) => setAmount(e.target.value)} aria-describedby="probe-result" />
-              </div>
-              <Button type="submit" variant="primary">Run test</Button>
-            </form>
-            {step.scene.operator === 'learner' && (
-              <div className="switch">
-                <span>Validator: amount</span>
-                <Toggle label="Validator comparison at the maximum" options={['<', '<='] as const} value={operator} onChange={setOperator} />
-                <span>500,000</span>
-              </div>
-            )}
-            <div id="probe-result" className="result" aria-live="polite">
-              {inputError ? (
-                inputError
-              ) : ev.you ? (
-                <>
-                  Spec: <b>{ev.you.expected ? 'accept' : 'reject'}</b> · Kudi: <b>{ev.you.actual ? 'accept' : 'reject'}</b> ·{' '}
-                  <Chip tone={ev.you.passed ? 'good' : 'bad'}>{ev.you.passed ? 'PASS' : 'FAIL'}</Chip>{' '}
-                  {ev.you.passed ? 'Kudi matches the spec.' : `You found a bug at ${naira(ev.you.amount)}.`}
-                </>
-              ) : (
-                'Run any amount through Kudi. It lands on the ruler as a lavender post.'
-              )}
-            </div>
+          <div className="controls" key={`controls-${cur}`}>
+            <SceneControls ev={ev} scene={step.scene} learner={learner} setLearner={setLearner} />
           </div>
           <div className="legend" aria-hidden="true">
-            <span><i style={{ background: 'var(--sl-sage)' }} />test passed</span>
-            <span><i style={{ background: 'var(--sl-rose)' }} />test failed</span>
-            <span><i style={{ background: 'var(--sl-lavender)' }} />your test</span>
-            <span><i style={{ background: 'var(--sl-pink)' }} />should be rejected</span>
-            <span><i style={{ background: 'var(--sl-sky)' }} />should be accepted</span>
-            <span><i style={{ background: 'var(--sl-request)', borderRadius: '50%' }} />request</span>
+            {legendFor(ev.kind).map((x) => (
+              <span key={x.label}>
+                <i style={{ background: x.color, borderRadius: x.round ? '50%' : undefined }} />
+                {x.label}
+              </span>
+            ))}
           </div>
         </section>
 
@@ -293,7 +242,7 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
           <div className="card practice">
             <h3>Practice</h3>
             <p>Write these tests for real against Kudi:</p>
-            <pre>pnpm exercise 02-boundaries</pre>
+            <pre>pnpm exercise {lesson.exercise.split('/').at(-1)}</pre>
             <p className="note">See {lesson.exercise}/README.md</p>
           </div>
         )}

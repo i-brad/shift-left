@@ -25,7 +25,7 @@ test('sending money updates balance and history', async ({ page }) => {
   await page.getByLabel('Recipient email').fill('tunde@kudi.test');
   await page.getByLabel('Amount').fill('5,000');
   await page.getByRole('button', { name: 'Send' }).click();
-  await expect(page.getByRole('status')).toHaveText('Sent ₦5,000 to tunde@kudi.test');
+  await expect(page.getByRole('status')).toHaveText('Sent ₦5,000 to tunde@kudi.test (fee ₦0)');
   await expect(page.getByTestId('balance')).toHaveText('₦595,000');
   await expect(page.getByTestId('transaction').first()).toContainText('To tunde@kudi.test');
 });
@@ -37,4 +37,17 @@ test('an amount over the limit shows the spec message under the field', async ({
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByLabel('Amount')).toHaveAccessibleDescription('Amount exceeds limit');
   await expect(page.getByTestId('balance')).toHaveText('₦600,000');
+});
+
+test('freezing, unfreezing and blocking the card', async ({ page }) => {
+  await logIn(page);
+  const state = page.getByTestId('card-state');
+  await expect(state).toHaveText('Active');
+  await page.getByRole('button', { name: 'Freeze' }).click();
+  await expect(state).toHaveText('Frozen');
+  await page.getByRole('button', { name: 'Unfreeze' }).click();
+  await expect(state).toHaveText('Active');
+  await page.getByRole('button', { name: 'Block card' }).click();
+  await expect(state).toHaveText('Blocked');
+  await expect(page.getByRole('button', { name: 'Unfreeze' })).toHaveCount(0);
 });

@@ -1,0 +1,221 @@
+import type { Lesson } from '../types';
+
+export const stateTransitions: Lesson = {
+  id: 'state-transitions',
+  module: 2,
+  order: 3,
+  title: 'State transitions',
+  hook: 'A customer blocked their stolen card. An hour later, someone used it. How does a blocked card come back to life?',
+  minutes: 15,
+  level: 'Beginner',
+  ctfl: ['FL-4.2.4'],
+  scene: 'card',
+  exercise: 'exercises/04-state-transitions',
+  learn: [
+    { text: 'Model a feature as states and transitions', afterStep: 0 },
+    { text: 'See why testing only valid paths isn\'t enough', afterStep: 1 },
+    { text: 'Build a full state table, including invalid moves', afterStep: 2 },
+    { text: 'Test that invalid transitions are refused', afterStep: 4 },
+    { text: 'Automate every cell of the state table', afterStep: 6 },
+  ],
+  steps: [
+    {
+      id: 'three-states',
+      role: 'setup',
+      rail: 'Three states',
+      title: 'A card with three states',
+      body: [
+        'Every Kudi customer has a virtual card. It is always in one of three [[state|states]]: **active**, **frozen** (paused, can be resumed) or **blocked** (stolen or lost, gone for good).',
+        'Buttons move it between states. Each move is a **transition**. Use the buttons under the scene to walk the card around the map.',
+      ],
+      callout: { kind: 'key', text: 'When the same action does different things depending on what happened before, the feature has states. Test it as a [[state-transition|state transition]] model.' },
+      changed: ['1 test: active → freeze → frozen'],
+      scene: { kind: 'card', suite: ['active:freeze'], bug: true },
+      deep: {
+        title: 'Where states hide in products',
+        blocks: [
+          { type: 'diagram', key: 'state-map', caption: 'Three states, four allowed transitions. Blocked has no way out.' },
+          { type: 'p', text: 'Orders (placed, paid, shipped, refunded), accounts (pending, verified, suspended), subscriptions, tickets, uploads. If a field is called "status", you are looking at a state machine.' },
+          { type: 'p', text: 'Kudi\'s spec says: freeze and unfreeze move between active and frozen; block works from active or frozen; **blocked is final**.' },
+        ],
+      },
+    },
+    {
+      id: 'happy-paths',
+      role: 'problem',
+      rail: 'Happy paths',
+      title: 'Test every arrow',
+      body: [
+        'You test all four arrows on the map: freeze, unfreeze, block from active, block from frozen. All four pass.',
+        'This is called **valid transitions coverage**, and it is often where testing stops.',
+      ],
+      callout: { kind: 'watch', text: 'Testing every arrow proves allowed moves work. It says nothing about moves that should be impossible.' },
+      changed: ['Tests 1 → 4', 'Valid transitions: 4 of 4', 'Invalid transitions: 0 of 5'],
+      scene: { kind: 'card', suite: 'valid', bug: true },
+      deep: {
+        title: 'Coverage levels for state machines',
+        blocks: [
+          { type: 'diagram', key: 'transition-coverage', caption: 'From weakest to strongest. CTFL asks you to know all three.' },
+          { type: 'table', head: ['Coverage', 'Means', 'Here'], rows: [['All states', 'Every state visited at least once', '3 states'], ['Valid transitions', 'Every allowed arrow taken', '4 arrows'], ['All transitions', 'Every state × action pair tried, including ones that must be refused', '9 pairs']] },
+        ],
+      },
+    },
+    {
+      id: 'state-table',
+      role: 'fix',
+      rail: 'State table',
+      title: 'Every state × every action',
+      body: [
+        'A **state table** lists every state against every action. Cells with an arrow are [[valid-transition|valid transitions]]. Empty cells are [[invalid-transition|invalid transitions]]: Kudi must refuse them.',
+        'The map now shows the refusals as dashed ghosts. None of them has been tested.',
+      ],
+      predict: {
+        question: 'Of the 9 state × action pairs, how many should Kudi refuse?',
+        options: [
+          { id: '1', label: '1' },
+          { id: '3', label: '3' },
+          { id: '5', label: '5' },
+          { id: '9', label: '9' },
+        ],
+        answer: '5',
+        explain: '9 pairs − 4 valid arrows = 5 refusals: freeze a frozen card, unfreeze an active card, and every action on a blocked card.',
+      },
+      changed: ['5 invalid transitions on the map, all untested'],
+      scene: { kind: 'card', refusals: true, suite: 'valid', bug: true },
+      deep: {
+        title: 'The full state table',
+        blocks: [
+          { type: 'table', head: ['From \\ action', 'freeze', 'unfreeze', 'block'], rows: [['active', '→ frozen', 'refuse', '→ blocked'], ['frozen', 'refuse', '→ active', '→ blocked'], ['blocked', 'refuse', 'refuse', 'refuse']] },
+          { type: 'p', text: 'Writing the table often finds bugs in the **spec** before any code runs: "what happens if you block a card twice?" is a question someone has to answer.' },
+        ],
+      },
+    },
+    {
+      id: 'incident',
+      role: 'problem',
+      rail: 'Production',
+      title: 'A blocked card comes back',
+      body: [
+        'A customer reports their card stolen and blocks it. The thief, still logged in on a stolen phone, taps "Unfreeze". The card is active again.',
+        'Every arrow on the map works. The bug is a move that should not exist.',
+      ],
+      callout: { kind: 'watch', text: 'Security bugs often live in invalid transitions: the system was never told to refuse something, so it doesn\'t.' },
+      changed: ['Escaped bugs 0 → 1'],
+      scene: { kind: 'card', refusals: true, suite: 'valid', bug: true, incident: true },
+      goal: { text: 'Reproduce it: block the card, then press Unfreeze.', check: { kind: 'card-wrong', id: 'blocked:unfreeze' } },
+      deep: {
+        title: 'Thinking like an attacker',
+        blocks: [
+          { type: 'p', text: 'Ask of every state: "what if someone presses every button here?" and "what if they call the API directly, skipping the UI?" A hidden button is not a refusal.' },
+        ],
+      },
+    },
+    {
+      id: 'refusals',
+      role: 'fix',
+      rail: 'Refusals',
+      title: 'Test what must be refused',
+      body: ['Add a test for each of the 5 invalid cells. Each one expects Kudi to say no and leave the card where it was.'],
+      predict: {
+        question: 'Which refusal will fail?',
+        options: [
+          { id: 'blocked:unfreeze', label: 'blocked → unfreeze' },
+          { id: 'blocked:freeze', label: 'blocked → freeze' },
+          { id: 'active:unfreeze', label: 'active → unfreeze' },
+          { id: 'blocked:block', label: 'blocked → block' },
+        ],
+        answer: 'blocked:unfreeze',
+        explain: 'Unfreeze only checks "is the card not active?", and a blocked card isn\'t active, so it lets it through. The other refusals hold.',
+      },
+      changed: ['Tests 4 → 9', 'Invalid transitions: 5 of 5', '1 fails'],
+      scene: { kind: 'card', refusals: true, suite: 'all', bug: true, incident: true },
+      deep: {
+        title: 'Test the state after, not just the answer',
+        blocks: [
+          { type: 'p', text: 'A refusal test checks two things: Kudi says no (an error), **and** the card is still in the state it started in. Some bugs return an error but change the state anyway.' },
+        ],
+      },
+    },
+    {
+      id: 'root-cause',
+      role: 'fix',
+      rail: 'Root cause',
+      title: 'A check that\'s too loose',
+      body: ['Unfreeze was written as "if the card isn\'t active, make it active". That is true for frozen cards, and also for blocked ones.'],
+      code: "// card.ts\nfunction unfreeze(card) {\n  if (card.state !== 'active') {   // too loose\n    card.state = 'active';\n  }\n}",
+      after: 'Use the switch to require "frozen" instead, then rerun all 9 cells.',
+      callout: { kind: 'key', text: 'Allow-lists beat deny-lists: "only from frozen" is safer than "not from active", because new states are refused by default.' },
+      changed: ['Unfreeze only from frozen', 'All 9 cells pass', 'Escaped bugs 1 → 0'],
+      scene: { kind: 'card', refusals: true, suite: 'all', bug: 'learner', incident: true },
+      goal: { text: 'Fix the unfreeze check so all 9 transitions behave.', check: { kind: 'all-pass' } },
+      deep: {
+        title: 'Make the code look like the table',
+        blocks: [
+          { type: 'code', code: "const NEXT = {\n  active: { freeze: 'frozen', block: 'blocked' },\n  frozen: { unfreeze: 'active', block: 'blocked' },\n  blocked: {},\n} as const;\n\nconst next = NEXT[card.state][action];\nif (!next) throw new InvalidTransition();" },
+          { type: 'p', text: 'With the table as data, every missing cell is a refusal automatically. The bug in this lesson cannot happen.' },
+        ],
+      },
+    },
+    {
+      id: 'automate',
+      role: 'fix',
+      rail: 'Automate',
+      title: 'Nine cells, one test',
+      body: ['Each cell of the state table becomes a test case: put the card in the "from" state, try the action, check the result.'],
+      code: "const table = [\n  ['active',  'freeze',   'frozen'],\n  ['active',  'unfreeze', null],\n  ['active',  'block',    'blocked'],\n  ['frozen',  'freeze',   null],\n  ['frozen',  'unfreeze', 'active'],\n  ['frozen',  'block',    'blocked'],\n  ['blocked', 'freeze',   null],\n  ['blocked', 'unfreeze', null],\n  ['blocked', 'block',    null],\n] as const;\n\nfor (const [from, action, to] of table) {\n  test(`${from} → ${action}`, async ({ request }) => {\n    await putCardIn(request, from);\n    const res = await request.post(`/api/card/${action}`);\n    expect(res.status()).toBe(to ? 200 : 409);\n    const card = await (await request.get('/api/card')).json();\n    expect(card.state).toBe(to ?? from);\n  });\n}",
+      after: '`putCardIn` uses the valid transitions to reach the starting state. You will write it in the Practice exercise.',
+      changed: ['9 cells, 1 test file', 'Runs in CI on every pull request'],
+      scene: { kind: 'card', refusals: true, suite: 'all', bug: false, incident: true, ci: true },
+      deep: {
+        title: 'Reaching a state in a test',
+        blocks: [
+          { type: 'p', text: 'Two ways: drive the app through valid transitions (realistic, slower), or set the state directly with a test-only endpoint or database seed (fast, but skips real paths). Kudi\'s exercise uses the first, so the helper itself is tested too.' },
+        ],
+      },
+    },
+    {
+      id: 'recap',
+      role: 'recap',
+      rail: 'Recap',
+      title: 'What you can do now',
+      body: ['When the order of actions matters:'],
+      list: ['Draw the states and the arrows between them', 'Write the full table: every state × every action', 'Mark which cells must be refused', 'Test every arrow and every refusal', 'Check the state after a refusal, not just the error'],
+      after: 'Next in this module: statement and branch coverage.',
+      changed: [],
+      scene: { kind: 'card', refusals: true, suite: 'all', bug: false, incident: true, ci: true },
+      deep: {
+        title: 'Longer journeys',
+        blocks: [
+          { type: 'p', text: 'All-transitions coverage tests each move once. Real bugs sometimes need a sequence: freeze, unfreeze, freeze again. Testing sequences of two moves is called 1-switch coverage; add a few for risky features.' },
+        ],
+      },
+    },
+  ],
+  check: [
+    {
+      q: 'An order can be placed, paid, shipped or cancelled. What does "all transitions" coverage add over "valid transitions"?',
+      options: ['Nothing', 'Tests that impossible moves, like shipping a cancelled order, are refused', 'Faster tests', 'More states'],
+      answer: 1,
+      why: 'All transitions includes every state × action pair, so invalid moves are tested too.',
+    },
+    {
+      q: 'Your refusal test gets an error back from the API. What else should it check?',
+      options: ['Nothing, the error is enough', 'That the state did not change', 'The response time', 'The UI colour'],
+      answer: 1,
+      why: 'Some bugs return an error but still change the state. Check where the object ended up.',
+    },
+    {
+      q: 'Which check is safer for "unfreeze"?',
+      options: ['if state !== "active"', 'if state === "frozen"', 'if state !== "blocked"', 'no check'],
+      answer: 1,
+      why: 'An allow-list ("only from frozen") refuses every other state, including ones added later.',
+    },
+  ],
+  atWork: [
+    'Find a field called "status" in your product\'s data.',
+    'Draw its states and arrows on paper or a whiteboard.',
+    'Write the full state × action table and mark refusals.',
+    'Try each refusal through the API, not just the UI.',
+    'Automate the table so new states can\'t slip past.',
+  ],
+};

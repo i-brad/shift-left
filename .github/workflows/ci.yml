@@ -21,10 +21,12 @@ jobs:
       - run: pnpm e2e
         env:
           CI: 'true'
-      - name: Exercise solution catches the planted bug
+      - name: Exercise solutions catch their planted bugs
         run: |
-          if pnpm exercise 02-boundaries --solution; then echo "Solution should fail with the bug on"; exit 1; fi
-          pnpm exercise 02-boundaries --solution --fixed
+          for ex in 02-boundaries 03-decision-tables 04-state-transitions; do
+            if pnpm exercise $ex --solution; then echo "$ex solution should fail with the bug on"; exit 1; fi
+            pnpm exercise $ex --solution --fixed
+          done
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

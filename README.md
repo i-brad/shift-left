@@ -35,7 +35,9 @@ packages/
   sim/         Pure simulations behind each scene: run(model, tests) → results
   lessons/     Course outline (with CTFL tags) and lessons as typed data
 exercises/
-  02-boundaries/   README, starter test, hints, solution, which bug it needs
+  02-boundaries/          Partitions and boundaries
+  03-decision-tables/     Decision tables (fees)
+  04-state-transitions/   State transitions (card)
 scripts/
   exercise.mjs     Runs an exercise against a fresh Kudi with its bug on or off
 ```
@@ -53,6 +55,8 @@ KUDI_BUGS=limit-exclusive pnpm kudi
 | Bug | Lesson | What it does |
 | --- | --- | --- |
 | `limit-exclusive` | Partitions and boundaries | Maximum uses `<` instead of `<=`, so exactly ₦500,000 is rejected |
+| `fee-express-first` | Decision tables | Fee rules check express before tier, so Plus express costs ₦100, not ₦50 |
+| `card-unblock` | State transitions | Unfreeze only checks "not active", so a blocked card can be reactivated |
 
 The list lives in `apps/kudi/src/bugs.ts`. Exercises turn their bug on for you.
 
@@ -73,8 +77,10 @@ pnpm e2e         # browser tests for the site and for Kudi
 
 ## Writing a lesson
 
-A lesson is a data file in `packages/lessons/src/lessons/`. Each step sets the scene's state, its text, an optional goal that unlocks Next, and a Go deeper section. See `partitions-boundaries.ts`, and add the lesson to `course.ts` with `built: true`.
+A lesson is a data file in `packages/lessons/src/lessons/`. Each step sets the scene's state, its text, an optional goal or prediction that unlocks Next, and a Go deeper section. Register it in `src/index.ts` and mark it `built: true` in `course.ts`.
+
+A new **kind** of scene needs: a pure simulation in `packages/sim`, an evaluator in `packages/lessons/src/evaluate.ts`, and a view + controls + metrics in `apps/site/components/scenes/`.
 
 ## Status
 
-Phase 0 (groundwork) of the plan: one playable lesson, Kudi with log in / balance / send money, one exercise. Next is Phase 1: the lesson shell's end-of-lesson check, and the remaining Module 1 and 2 lessons.
+Phase 1 in progress: 3 playable lessons (Partitions and boundaries, Decision tables, State transitions), each with a Kudi feature, a planted bug and an exercise. Next: the rest of Module 2, then Module 1.

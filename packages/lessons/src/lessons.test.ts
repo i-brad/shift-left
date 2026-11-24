@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { course, evaluateStep, glossary, lessonCount, lessons, partitionsBoundaries as L } from './index';
+import { attemptCard, course, decisionTables, evaluateStep, glossary, initialLearner, lessonCount, lessons, partitionsBoundaries as L, stateTransitions, type BoundaryEval, type CardEval, type FeeEval, type Learner, type Lesson } from './index';
+
+const learner = (o: Partial<Learner> = {}): Learner => ({ ...initialLearner(), ...o });
+const stepOf = (lesson: Lesson, id: string) => {
+  const s = lesson.steps.find((x) => x.id === id);
+  if (!s) throw new Error(`no step ${id}`);
+  return s;
+};
 
 const step = (id: string) => {
   const s = L.steps.find((x) => x.id === id);
@@ -43,13 +50,13 @@ describe('Partitions and boundaries', () => {
   });
 
   it('the boundary prediction matches what the simulation says fails', () => {
-    const e = evaluateStep(step('boundaries'), { operator: '<', probe: null });
+    const e = (evaluateStep(step('boundaries'), learner({ operator: '<', probe: null })) as BoundaryEval);
     const failing = e.run.results.filter((r) => !r.passed).map((r) => String(r.amount));
     expect(failing).toEqual([step('boundaries').predict!.answer]);
   });
 
   it('the partition prediction is right: three partitions find nothing', () => {
-    const e = evaluateStep(step('partitions'), { operator: '<', probe: null });
+    const e = (evaluateStep(step('partitions'), learner({ operator: '<', probe: null })) as BoundaryEval);
     expect(e.run.metrics.failing === 0 ? 'no' : 'yes').toBe(step('partitions').predict!.answer);
   });
 
@@ -67,34 +74,109 @@ describe('Partitions and boundaries', () => {
   });
 
   it('three partitions miss the bug', () => {
-    const e = evaluateStep(step('partitions'), { operator: '<', probe: null });
+    const e = (evaluateStep(step('partitions'), learner({ operator: '<', probe: null })) as BoundaryEval);
     expect(e.run.metrics).toMatchObject({ groupsCovered: 3, failing: 0 });
   });
 
   it('the production goal is met only by reproducing ₦500,000', () => {
     const s = step('production');
-    expect(evaluateStep(s, { operator: '<', probe: null }).goalMet).toBe(false);
-    expect(evaluateStep(s, { operator: '<', probe: 5000 }).goalMet).toBe(false);
-    expect(evaluateStep(s, { operator: '<', probe: 500_000 }).goalMet).toBe(true);
+    expect((evaluateStep(s, learner({ operator: '<', probe: null })) as BoundaryEval).goalMet).toBe(false);
+    expect((evaluateStep(s, learner({ operator: '<', probe: 5000 })) as BoundaryEval).goalMet).toBe(false);
+    expect((evaluateStep(s, learner({ operator: '<', probe: 500_000 })) as BoundaryEval).goalMet).toBe(true);
   });
 
   it('boundary values catch exactly one failure', () => {
-    const e = evaluateStep(step('boundaries'), { operator: '<=', probe: null });
+    const e = (evaluateStep(step('boundaries'), learner({ operator: '<=', probe: null })) as BoundaryEval);
     expect(e.run.metrics.failing).toBe(1);
     expect(e.escapedBugs).toBe(1);
   });
 
   it('the root-cause goal needs the learner to flip the operator', () => {
     const s = step('root-cause');
-    expect(evaluateStep(s, { operator: '<', probe: null }).goalMet).toBe(false);
-    const fixed = evaluateStep(s, { operator: '<=', probe: null });
+    expect((evaluateStep(s, learner({ operator: '<', probe: null })) as BoundaryEval).goalMet).toBe(false);
+    const fixed = (evaluateStep(s, learner({ operator: '<=', probe: null })) as BoundaryEval);
     expect(fixed.goalMet).toBe(true);
     expect(fixed.escapedBugs).toBe(0);
   });
 
   it('every step after the fix is green', () => {
     for (const id of ['automate', 'recap']) {
-      expect(evaluateStep(step(id), { operator: '<', probe: null }).run.metrics.failing).toBe(0);
+      expect(evaluateStep(step(id), learner()).run.metrics.failing).toBe(0);
     }
+  });
+});
+
+describe('every built lesson', () => {
+  for (const lesson of Object.values(lessons)) {
+    describe(lesson.title, () => {
+      it('has consistent steps, predictions, learn items and check', () => {
+        expect(new Set(lesson.steps.map((s) => s.id)).size).toBe(lesson.steps.length);
+        expect(new Set(lesson.steps.map((s) => s.rail)).size).toBe(lesson.steps.length);
+        for (const s of lesson.steps) {
+          expect(s.scene.kind).toBe(lesson.scene);
+          if (s.predict) expect(s.predict.options.map((o) => o.id)).toContain(s.predict.answer);
+        }
+        for (const l of lesson.learn) expect(lesson.steps[l.afterStep]).toBeDefined();
+        for (const q of lesson.check) expect(q.options[q.answer]).toBeDefined();
+        expect(lesson.atWork.length).toBeGreaterThanOrEqual(3);
+      });
+    });
+  }
+});
+
+describe('Decision tables', () => {
+  const D = decisionTables;
+  const fee = (id: string, o: Partial<Learner> = {}) => evaluateStep(stepOf(D, id), learner(o)) as FeeEval;
+
+  it('one-at-a-time covers 4 of 8 and finds nothing', () => {
+    expect(fee('one-at-a-time').run.metrics).toMatchObject({ combosCovered: 4, failing: 0 });
+  });
+
+  it('the incident goal needs Plus + express', () => {
+    expect(fee('incident').goalMet).toBe(false);
+    expect(fee('incident', { fee: { tier: 'plus', amount: 3000, express: true } }).goalMet).toBe(true);
+  });
+
+  it('the full table fails exactly the Plus + express slice, as predicted', () => {
+    const r = fee('fill-gaps').run;
+    expect(r.results.filter((x) => !x.passed).map((x) => x.id).sort()).toEqual(['plus-high-express', 'plus-low-express']);
+    expect(stepOf(D, 'fill-gaps').predict!.answer).toBe('plus-express');
+  });
+
+  it('one test per rule still catches the bug', () => {
+    expect(fee('collapse').run.metrics).toMatchObject({ tests: 5, rulesCovered: 5, failing: 1 });
+  });
+
+  it('the root-cause goal needs the learner to reorder the rules', () => {
+    expect(fee('root-cause').goalMet).toBe(false);
+    expect(fee('root-cause', { feeOrder: 'tier-first' }).goalMet).toBe(true);
+  });
+});
+
+describe('State transitions', () => {
+  const S = stateTransitions;
+  const card = (id: string, o: Partial<Learner> = {}) => evaluateStep(stepOf(S, id), learner(o)) as CardEval;
+
+  it('valid-only coverage finds nothing', () => {
+    expect(card('happy-paths').run.metrics).toMatchObject({ validCovered: 4, invalidCovered: 0, failing: 0 });
+  });
+
+  it('the incident goal is met by blocking then unfreezing', () => {
+    let l = learner();
+    l = attemptCard(l, 'block', true);
+    expect(evaluateStep(stepOf(S, 'incident'), l).goalMet).toBe(false);
+    l = attemptCard(l, 'unfreeze', true);
+    expect(l.card.state).toBe('active');
+    expect(evaluateStep(stepOf(S, 'incident'), l).goalMet).toBe(true);
+  });
+
+  it('testing refusals fails exactly what the prediction says', () => {
+    const r = card('refusals').run;
+    expect(r.results.filter((x) => !x.passed).map((x) => x.id)).toEqual([stepOf(S, 'refusals').predict!.answer]);
+  });
+
+  it('the root-cause goal needs the learner to fix the check', () => {
+    expect(card('root-cause').goalMet).toBe(false);
+    expect(card('root-cause', { cardFixed: true }).goalMet).toBe(true);
   });
 });

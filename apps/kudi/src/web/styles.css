@@ -23,3 +23,9 @@
 .history b.out { color: var(--sl-rose-ink); }
 .history b.in { color: #2e5e22; }
 .history li span { overflow-wrap: anywhere; }
+
+.check-row { display: flex; gap: 8px; align-items: center; font-size: 13.5px; min-height: 32px; }
+.check-row input { width: 18px; height: 18px; }
+.big-state { margin: 0; font-size: 24px; font-weight: 800; }
+.big-state[data-state='blocked'] { color: var(--sl-rose-ink); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }

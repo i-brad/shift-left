@@ -136,7 +136,7 @@ test('the team checklist is always visible', async ({ page }) => {
 });
 
 test('lessons not built yet show a placeholder', async ({ page }) => {
-  await page.goto('/learn/decision-tables');
+  await page.goto('/learn/coverage');
   await expect(page.getByText('This lesson is planned but not built yet.')).toBeVisible();
-  await expect(page.getByText('Covers CTFL FL-4.2.3.')).toBeVisible();
+  await expect(page.getByText('Covers CTFL FL-4.3.')).toBeVisible();
 });

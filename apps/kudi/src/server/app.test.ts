@@ -90,3 +90,62 @@ describe('with the limit-exclusive bug on', () => {
     expect(await api.call('POST', '/transfers', { to: 'tunde@kudi.test', amount: 500_000 })).toEqual({ status: 422, json: { error: 'AMOUNT_ABOVE_LIMIT' } });
   });
 });
+
+describe('fees', () => {
+  const asTunde = async () => {
+    const api = setup();
+    await api.call('POST', '/sessions', { email: 'tunde@kudi.test', password: 'kudi-tunde-pass' });
+    return api;
+  };
+
+  it('previews fees by tier (Ada is Plus, Tunde is Basic)', async () => {
+    const ada = setup();
+    await ada.loginAsAda();
+    expect((await ada.call('GET', '/fees?amount=2000&express=true')).json).toEqual({ fee: 50 });
+    const tunde = await asTunde();
+    expect((await tunde.call('GET', '/fees?amount=8000&express=false')).json).toEqual({ fee: 25 });
+  });
+
+  it('charges the fee on top of the amount', async () => {
+    const tunde = await asTunde();
+    const res = await tunde.call('POST', '/transfers', { to: 'ada@kudi.test', amount: 1000, express: true });
+    expect(res.json).toMatchObject({ fee: 100, express: true, balance: 18_900 });
+  });
+
+  it('counts the fee when checking the balance', async () => {
+    const tunde = await asTunde();
+    expect((await tunde.call('POST', '/transfers', { to: 'ada@kudi.test', amount: 19_995 })).json.error).toBe('INSUFFICIENT_FUNDS');
+  });
+
+  it('with fee-express-first, Plus express costs ₦100', async () => {
+    const api = setup(bugsFrom(['fee-express-first']));
+    await api.loginAsAda();
+    expect((await api.call('GET', '/fees?amount=2000&express=true')).json).toEqual({ fee: 100 });
+  });
+});
+
+describe('card', () => {
+  it('moves through valid states and refuses invalid ones without changing state', async () => {
+    const api = setup();
+    await api.loginAsAda();
+    expect((await api.call('GET', '/card')).json).toEqual({ state: 'active' });
+    expect(await api.call('POST', '/card/unfreeze')).toEqual({ status: 409, json: { error: 'INVALID_TRANSITION', state: 'active' } });
+    expect((await api.call('POST', '/card/freeze')).json).toEqual({ state: 'frozen' });
+    expect((await api.call('POST', '/card/block')).json).toEqual({ state: 'blocked' });
+    expect((await api.call('POST', '/card/unfreeze')).status).toBe(409);
+    expect((await api.call('GET', '/card')).json).toEqual({ state: 'blocked' });
+  });
+
+  it('404s on an unknown action', async () => {
+    const api = setup();
+    await api.loginAsAda();
+    expect((await api.call('POST', '/card/explode')).status).toBe(404);
+  });
+
+  it('with card-unblock, a blocked card can be unfrozen', async () => {
+    const api = setup(bugsFrom(['card-unblock']));
+    await api.loginAsAda();
+    await api.call('POST', '/card/block');
+    expect((await api.call('POST', '/card/unfreeze')).json).toEqual({ state: 'active' });
+  });
+});

@@ -1,0 +1,6 @@
+{
+  "title": "03 · Decision tables: test the transfer fees",
+  "lesson": "decision-tables",
+  "bug": "fee-express-first",
+  "ctfl": ["FL-4.2.3"]
+}
