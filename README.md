@@ -39,6 +39,7 @@ exercises/
   03-decision-tables/     Decision tables (fees)
   04-state-transitions/   State transitions (card)
   05-coverage/            Statement and branch coverage (Vitest + coverage report)
+  06-api/                 Module 3: status, shape, authorisation, negative tests
 scripts/
   exercise.mjs     Runs an exercise against a fresh Kudi with its bug on or off
 ```
@@ -58,6 +59,9 @@ KUDI_BUGS=limit-exclusive pnpm kudi
 | `limit-exclusive` | Partitions and boundaries | Maximum uses `<` instead of `<=`, so exactly ₦500,000 is rejected |
 | `fee-express-first` | Decision tables | Fee rules check express before tier, so Plus express costs ₦100, not ₦50 |
 | `card-unblock` | State transitions | Unfreeze only checks "not active", so a blocked card can be reactivated |
+| `history-amount-string` | Asserting on responses | `GET /api/transfers` returns amounts as strings |
+| `transfer-idor` | Authn vs authz | Anyone signed in can read any transfer by id |
+| `bad-json-500` | Negative tests | Broken JSON crashes `POST /api/transfers` with a 500 |
 | `cashback-basic-undefined` | Statement and branch coverage | `rate` is never initialised, so Basic customers get NaN cashback |
 
 The list lives in `apps/kudi/src/bugs.ts`. Exercises turn their bug on for you.
@@ -85,4 +89,4 @@ A new **kind** of scene needs: a pure simulation in `packages/sim`, an evaluator
 
 ## Status
 
-Modules 1 and 2 complete (14 lessons). See BUILD_PLAN.md for the rest.
+Modules 1–3 complete (18 lessons). See BUILD_PLAN.md for the rest.

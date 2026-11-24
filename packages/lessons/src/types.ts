@@ -23,6 +23,9 @@ export type GoalCheck =
   | { kind: 'card-wrong'; id: string }
   | { kind: 'board-complete'; board: string }
   | { kind: 'cov-fails' }
+  | { kind: 'statuses-seen'; statuses: number[] }
+  | { kind: 'bug-found'; bug: import('@shift-left/sim').ApiBug }
+  | { kind: 'assert-catches' }
   | { kind: 'pipeline-target'; pipeline: string; maxEscaped?: number; maxCost?: number; maxSeconds?: number };
 
 export type BoundaryScene = {
@@ -92,7 +95,19 @@ export type PipelineScene = {
   start?: readonly string[];
 };
 
-export type SceneState = BoundaryScene | FeeScene | CardScene | BoardScene | CoverageScene | PipelineScene;
+export type RequestScene = {
+  kind: 'request';
+  /** Bugs planted in this step's API. */
+  bugs: readonly import('@shift-left/sim').ApiBug[];
+  /** Request shown at the start of the step. */
+  preset: import('@shift-left/sim').ApiRequest;
+  /** Show the assertions panel. */
+  assertions?: boolean;
+  /** Show the auth gate and rooms prominently. */
+  rooms?: boolean;
+};
+
+export type SceneState = BoundaryScene | FeeScene | CardScene | BoardScene | CoverageScene | PipelineScene | RequestScene;
 export type SceneKind = SceneState['kind'];
 
 export type Step = {

@@ -23,7 +23,7 @@ jobs:
           CI: 'true'
       - name: Exercise solutions catch their planted bugs
         run: |
-          for ex in 02-boundaries 03-decision-tables 04-state-transitions 05-coverage; do
+          for ex in 02-boundaries 03-decision-tables 04-state-transitions 05-coverage 06-api; do
             if pnpm exercise $ex --solution; then echo "$ex solution should fail with the bug on"; exit 1; fi
             pnpm exercise $ex --solution --fixed
           done

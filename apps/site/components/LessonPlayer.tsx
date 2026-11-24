@@ -92,7 +92,7 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
     (i: number) => {
       if (i < 0 || i >= lesson.steps.length || isLocked(i)) return;
       setCur(i);
-      setLearnerState((l) => ({ ...l, probe: null }));
+      setLearnerState((l) => ({ ...l, probe: null, req: null, sent: [] }));
       setAnimKey((k) => k + 1);
       history.replaceState(null, '', `#step-${i + 1}`);
     },
@@ -153,7 +153,7 @@ export function LessonPlayer({ lesson, moduleTitle }: { lesson: Lesson; moduleTi
             <SceneView ev={ev} scene={step.scene} reducedMotion={reducedMotion} hideResults={!predicted} />
           </div>
           <div className={`controls controls-${ev.kind}`} key={`controls-${cur}`}>
-            <SceneControls ev={ev} scene={step.scene} learner={learner} setLearner={setLearner} />
+            <SceneControls ev={ev} scene={step.scene} learner={learner} setLearner={setLearner} hideResults={!predicted} />
           </div>
           <div className="legend" aria-hidden="true">
             {legendFor(ev.kind).map((x) => (

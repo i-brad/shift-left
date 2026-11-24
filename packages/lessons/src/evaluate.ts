@@ -16,6 +16,9 @@ import {
   runBoard,
   runCoverage,
   runPipeline,
+  exchange,
+  bugShown,
+  failingAssertions,
   runFees,
   specFee,
   specNext,
@@ -30,6 +33,9 @@ import {
   type CoverageRun,
   type PipelineDef,
   type PipelineRun,
+  type ApiRequest,
+  type Assertion,
+  type Exchange,
   type CardState,
   type FeeCombo,
   type FeeOrder,
@@ -39,7 +45,7 @@ import {
   type Tier,
   type Transition,
 } from '@shift-left/sim';
-import type { BoardScene, BoundaryScene, CardScene, CoverageScene, FeeScene, GoalCheck, Lesson, PipelineScene, Step } from './types';
+import type { BoardScene, BoundaryScene, CardScene, CoverageScene, FeeScene, GoalCheck, Lesson, PipelineScene, RequestScene, Step } from './types';
 
 /** Everything the learner has done in the lesson. One shape for all scenes; each scene reads its part. */
 export type Learner = {
@@ -55,6 +61,10 @@ export type Learner = {
   covFixed: boolean;
   /** pipelineId → enabled checks (only once the learner has touched it). */
   pipes: Record<string, string[]>;
+  /** The request being edited (null = use the step's preset), requests sent, and chosen assertions. */
+  req: ApiRequest | null;
+  sent: ApiRequest[];
+  assertions: Assertion[];
 };
 
 export const initialLearner = (): Learner => ({
@@ -69,6 +79,9 @@ export const initialLearner = (): Learner => ({
   covTests: [],
   covFixed: false,
   pipes: {},
+  req: null,
+  sent: [],
+  assertions: ['status'],
 });
 
 export type BoundaryEval = {
@@ -108,12 +121,16 @@ export type CoverageEval = { kind: 'coverage'; fixed: boolean; run: CoverageRun;
 
 export type PipelineEval = { kind: 'pipeline'; pipelineId: string; def: PipelineDef; enabled: string[]; learnerControls: boolean; run: PipelineRun; escapedBugs: number; goalMet: boolean };
 
-export type StepEval = BoundaryEval | FeeEval | CardEval | BoardEval | CoverageEval | PipelineEval;
+export type RequestEval = { kind: 'request'; req: ApiRequest; current: Exchange; history: Exchange[]; assertions: Assertion[]; catching: Assertion[]; escapedBugs: number; goalMet: boolean };
+
+export type StepEval = BoundaryEval | FeeEval | CardEval | BoardEval | CoverageEval | PipelineEval | RequestEval;
 
 export function evaluateStep(step: Step, learner: Learner, lesson?: Pick<Lesson, 'boards' | 'pipelines'>): StepEval {
   switch (step.scene.kind) {
     case 'pipeline':
       return evalPipeline(step, step.scene, learner, lesson);
+    case 'request':
+      return evalRequest(step, step.scene, learner);
     case 'board':
       return evalBoard(step, step.scene, learner, lesson);
     case 'coverage':
@@ -194,7 +211,23 @@ function evalPipeline(step: Step, scene: PipelineScene, learner: Learner, lesson
   return { kind: 'pipeline', pipelineId: scene.pipeline, def, enabled, learnerControls, run: result, escapedBugs: result.metrics.escaped, goalMet };
 }
 
-type GoalFacts = { allPass: boolean; probe?: ProbeResult | null; feeYouFails?: boolean; cardWrong?: Set<string>; boardDone?: Record<string, boolean>; covFails?: boolean; pipeline?: { id: string; m: PipelineRun['metrics'] } };
+function evalRequest(step: Step, scene: RequestScene, learner: Learner): RequestEval {
+  const bugs = new Set(scene.bugs);
+  const req = learner.req ?? scene.preset;
+  const current = exchange(req, bugs);
+  const history = learner.sent.map((r) => exchange(r, bugs));
+  const failing = failingAssertions(current);
+  const catching = learner.assertions.filter((a) => failing.includes(a));
+  const goalMet =
+    !step.goal ||
+    checkGoal(step.goal.check, {
+      allPass: false,
+      request: { statuses: new Set(history.map((h) => h.actual.status)), found: new Set(history.map(bugShown).filter(Boolean) as string[]), catches: !current.matches && catching.length > 0 },
+    });
+  return { kind: 'request', req, current, history, assertions: learner.assertions, catching, escapedBugs: 0, goalMet };
+}
+
+type GoalFacts = { allPass: boolean; probe?: ProbeResult | null; feeYouFails?: boolean; cardWrong?: Set<string>; boardDone?: Record<string, boolean>; covFails?: boolean; pipeline?: { id: string; m: PipelineRun['metrics'] }; request?: { statuses: Set<number>; found: Set<string>; catches: boolean } };
 
 export function checkGoal(check: GoalCheck, f: GoalFacts): boolean {
   switch (check.kind) {
@@ -210,6 +243,12 @@ export function checkGoal(check: GoalCheck, f: GoalFacts): boolean {
       return !!f.boardDone?.[check.board];
     case 'cov-fails':
       return !!f.covFails;
+    case 'statuses-seen':
+      return !!f.request && check.statuses.every((s) => f.request!.statuses.has(s));
+    case 'bug-found':
+      return !!f.request?.found.has(check.bug);
+    case 'assert-catches':
+      return !!f.request?.catches;
     case 'pipeline-target': {
       if (!f.pipeline || f.pipeline.id !== check.pipeline) return false;
       const m = f.pipeline.m;

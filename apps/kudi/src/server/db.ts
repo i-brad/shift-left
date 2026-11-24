@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 export const SEED_USERS = [
   { name: 'Ada', email: 'ada@kudi.test', password: 'kudi-ada-pass', balance: 600_000, tier: 'plus' },
   { name: 'Tunde', email: 'tunde@kudi.test', password: 'kudi-tunde-pass', balance: 20_000, tier: 'basic' },
+  { name: 'Bola', email: 'bola@kudi.test', password: 'kudi-bola-pass', balance: 50_000, tier: 'basic' },
 ] as const;
 
 export type User = { id: number; name: string; email: string; balance: number; tier: 'basic' | 'plus' };
@@ -99,6 +100,17 @@ export function openDb(path: string) {
     },
     setCardState(userId: number, state: string) {
       db.prepare('UPDATE cards SET state = ? WHERE user_id = ?').run(state, userId);
+    },
+    /** One transfer as seen by `viewerId`, plus who took part. */
+    transferById(id: number, viewerId: number) {
+      return db
+        .prepare(
+          `SELECT t.id, t.amount, t.created_at AS createdAt, t.from_id AS fromId, t.to_id AS toId,
+                  CASE WHEN t.from_id = ? THEN 'out' ELSE 'in' END AS direction,
+                  CASE WHEN t.from_id = ? THEN tu.email ELSE fu.email END AS counterparty
+           FROM transfers t JOIN users fu ON fu.id = t.from_id JOIN users tu ON tu.id = t.to_id WHERE t.id = ?`,
+        )
+        .get(viewerId, viewerId, id) as { id: number; amount: number; createdAt: string; fromId: number; toId: number; direction: 'in' | 'out'; counterparty: string } | undefined;
     },
     history(userId: number) {
       return db

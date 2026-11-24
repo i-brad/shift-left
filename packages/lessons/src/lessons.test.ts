@@ -239,3 +239,33 @@ describe('pipeline lessons', () => {
     });
   }
 });
+
+describe('Module 3 · API lessons', () => {
+  const R = (method: string, path: string, auth: string, body: string) => ({ method, path, auth, body }) as never;
+
+  it('HTTP: four statuses need four different requests', () => {
+    const s = stepOf(lessons['http-for-testers']!, 'collect');
+    expect(evaluateStep(s, learner({ sent: [R('POST', '/api/transfers', 'ada', 'valid')] })).goalMet).toBe(false);
+    const sent = [R('POST', '/api/transfers', 'ada', 'valid'), R('GET', '/api/me', 'none', 'none'), R('GET', '/api/nope', 'ada', 'none'), R('POST', '/api/transfers', 'ada', 'string-amount')];
+    expect(evaluateStep(s, learner({ sent })).goalMet).toBe(true);
+  });
+
+  it('Asserting: status alone misses the string amount; shape catches it', () => {
+    const s = stepOf(lessons['asserting-responses']!, 'assert-shape');
+    expect(evaluateStep(s, learner({ assertions: ['status'] })).goalMet).toBe(false);
+    expect(evaluateStep(s, learner({ assertions: ['status', 'shape'] })).goalMet).toBe(true);
+  });
+
+  it('Authz: the IDOR only shows as Ada on a transfer that is not hers', () => {
+    const s = stepOf(lessons['authn-authz']!, 'idor');
+    expect(evaluateStep(s, learner({ sent: [R('GET', '/api/transfers/7', 'ada', 'none')] })).goalMet).toBe(false);
+    expect(evaluateStep(s, learner({ sent: [R('GET', '/api/transfers/9', 'tunde', 'none')] })).goalMet).toBe(false);
+    expect(evaluateStep(s, learner({ sent: [R('GET', '/api/transfers/9', 'ada', 'none')] })).goalMet).toBe(true);
+  });
+
+  it('Negative: broken JSON is the 500', () => {
+    const s = stepOf(lessons['negative-tests']!, 'crash');
+    expect(evaluateStep(s, learner({ sent: [R('POST', '/api/transfers', 'ada', 'huge'), R('POST', '/api/transfers', 'ada', 'string-amount')] })).goalMet).toBe(false);
+    expect(evaluateStep(s, learner({ sent: [R('POST', '/api/transfers', 'ada', 'malformed')] })).goalMet).toBe(true);
+  });
+});

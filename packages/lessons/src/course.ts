@@ -29,10 +29,10 @@ export const course: CourseModule[] = [
   },
   {
     n: 3, title: 'API testing', color: '#b9a3ea', lessons: [
-      { id: 'http-for-testers', title: 'HTTP for testers', built: false },
-      { id: 'asserting-responses', title: 'Asserting on responses', built: false },
-      { id: 'authn-authz', title: 'Authentication vs authorisation', built: false },
-      { id: 'negative-tests', title: 'Negative tests', built: false },
+      { id: 'http-for-testers', title: 'HTTP for testers', built: true },
+      { id: 'asserting-responses', title: 'Asserting on responses', built: true },
+      { id: 'authn-authz', title: 'Authentication vs authorisation', built: true },
+      { id: 'negative-tests', title: 'Negative tests', built: true },
     ],
   },
   {

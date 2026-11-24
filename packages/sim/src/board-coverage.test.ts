@@ -74,3 +74,29 @@ describe('pipeline', () => {
     expect(runPipeline(P, ['prod']).metrics.escaped).toBe(2);
   });
 });
+
+import { bugShown, exchange, failingAssertions } from './request';
+
+describe('request', () => {
+  const none = new Set<never>();
+  it('matches the spec when there are no bugs', () => {
+    expect(exchange({ method: 'POST', path: '/api/transfers', auth: 'ada', body: 'valid' }, none)).toMatchObject({ matches: true, actual: { status: 201 } });
+    expect(exchange({ method: 'GET', path: '/api/me', auth: 'none', body: 'none' }, none).actual.status).toBe(401);
+  });
+  it('history-amount-string passes a status check but fails shape and values', () => {
+    const x = exchange({ method: 'GET', path: '/api/transfers', auth: 'ada', body: 'none' }, new Set(['history-amount-string']));
+    expect(failingAssertions(x)).toEqual(['shape', 'values']);
+    expect(bugShown(x)).toBe('history-amount-string');
+  });
+  it('transfer-idor lets Ada read transfer 9', () => {
+    const x = exchange({ method: 'GET', path: '/api/transfers/9', auth: 'ada', body: 'none' }, new Set(['transfer-idor']));
+    expect(x.expected.status).toBe(404);
+    expect(x.actual.status).toBe(200);
+    expect(bugShown(x)).toBe('transfer-idor');
+  });
+  it('bad-json-500 crashes on broken JSON', () => {
+    const x = exchange({ method: 'POST', path: '/api/transfers', auth: 'ada', body: 'malformed' }, new Set(['bad-json-500']));
+    expect(x).toMatchObject({ expected: { status: 400 }, actual: { status: 500 } });
+    expect(bugShown(x)).toBe('bad-json-500');
+  });
+});

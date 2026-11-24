@@ -8,6 +8,7 @@ Kudi is a made-up fintech app that exists to be tested. This file is the **test 
 | --- | --- | --- | --- | --- |
 | Ada | ada@kudi.test | kudi-ada-pass | Plus | ₦600,000 |
 | Tunde | tunde@kudi.test | kudi-tunde-pass | Basic | ₦20,000 |
+| Bola | bola@kudi.test | kudi-bola-pass | Basic | ₦50,000 |
 
 Every account starts with an **active** card.
 
@@ -31,6 +32,7 @@ These are test accounts in a local database. `POST /api/test/reset` restores the
 
 | Rule | Result |
 | --- | --- |
+| Body is not a JSON object (broken, empty, or a bare string/number/array) | `400 BAD_JSON` |
 | Amount is a whole number of naira from **₦100 up to and including ₦500,000** | Accepted |
 | Amount below ₦100 (including 0 and negatives) | `422 AMOUNT_BELOW_MIN` |
 | Amount above ₦500,000 | `422 AMOUNT_ABOVE_LIMIT` |
@@ -40,7 +42,9 @@ These are test accounts in a local database. `POST /api/test/reset` restores the
 | Recipient is the sender | `422 SAME_ACCOUNT` |
 | No session | `401 UNAUTHENTICATED` |
 
-Checks run in the order above (amount first, then balance, then recipient).
+No request, however malformed, may produce a `5xx`.
+
+Checks run in the order above (JSON first, then amount, then balance, then recipient).
 
 An accepted transfer returns `201 { "id", "to", "amount", "fee", "express", "balance" }` with the sender's new balance. The sender pays amount + fee; the recipient receives exactly the amount.
 
@@ -101,3 +105,7 @@ Blocked is final: nothing moves a card out of it.
 ## History
 
 `GET /api/transfers` → the signed-in user's transfers, newest first: `{ "id", "direction": "out" | "in", "counterparty", "amount", "createdAt" }`.
+
+Every `amount` is a JSON **number**, never a string.
+
+`GET /api/transfers/:id` → one transfer in the same shape, seen from the caller's side. Only its **sender or recipient** may read it. Anyone else signed in gets `404 { "error": "NOT_FOUND" }` (not 403, so ids don't reveal which transfers exist); so does an id that doesn't exist.

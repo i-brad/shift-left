@@ -149,3 +149,61 @@ describe('card', () => {
     expect((await api.call('POST', '/card/unfreeze')).json).toEqual({ state: 'active' });
   });
 });
+
+describe('Module 3 API rules', () => {
+  const as = (s: ReturnType<typeof setup>, who: 'ada' | 'tunde' | 'bola') => s.call('POST', '/sessions', { email: `${who}@kudi.test`, password: `kudi-${who}-pass` });
+  const tundePaysBola = async (bugs: Bugs = noBugs) => {
+    const s = setup(bugs);
+    await as(s, 'tunde');
+    const { json } = await s.call('POST', '/transfers', { to: 'bola@kudi.test', amount: 1000 });
+    return { s, id: json.id as number };
+  };
+
+  it('history amounts are numbers', async () => {
+    const s = setup();
+    await s.loginAsAda();
+    await s.call('POST', '/transfers', { to: 'tunde@kudi.test', amount: 5000 });
+    const { json } = await s.call('GET', '/transfers');
+    expect(typeof json[0].amount).toBe('number');
+  });
+
+  it('with history-amount-string, amounts are strings', async () => {
+    const s = setup(bugsFrom(['history-amount-string']));
+    await s.loginAsAda();
+    await s.call('POST', '/transfers', { to: 'tunde@kudi.test', amount: 5000 });
+    expect((await s.call('GET', '/transfers')).json[0].amount).toBe('5000');
+  });
+
+  it('a transfer is visible to the sender and recipient only', async () => {
+    const { s, id } = await tundePaysBola();
+    expect((await s.call('GET', `/transfers/${id}`)).json).toMatchObject({ id, direction: 'out', counterparty: 'bola@kudi.test', amount: 1000 });
+    await as(s, 'bola');
+    expect((await s.call('GET', `/transfers/${id}`)).json).toMatchObject({ direction: 'in', counterparty: 'tunde@kudi.test' });
+    await as(s, 'ada');
+    expect(await s.call('GET', `/transfers/${id}`)).toEqual({ status: 404, json: { error: 'NOT_FOUND' } });
+    expect((await s.call('GET', '/transfers/9999')).status).toBe(404);
+  });
+
+  it('with transfer-idor, Ada can read it', async () => {
+    const { s, id } = await tundePaysBola(bugsFrom(['transfer-idor']));
+    await as(s, 'ada');
+    expect((await s.call('GET', `/transfers/${id}`)).status).toBe(200);
+  });
+
+  const raw = async (bugs: Bugs) => {
+    const app = createApp({ db: openDb(':memory:'), bugs });
+    const login = await app.request('/api/sessions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'ada@kudi.test', password: 'kudi-ada-pass' }) });
+    const cookie = (login.headers.get('set-cookie') ?? '').split(';')[0]!;
+    return app.request('/api/transfers', { method: 'POST', headers: { 'content-type': 'application/json', cookie }, body: '{ "to": "tunde@kudi.test", "amount": ' });
+  };
+
+  it('broken JSON is a 400', async () => {
+    const res = await raw(noBugs);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'BAD_JSON' });
+  });
+
+  it('with bad-json-500, broken JSON is a 500', async () => {
+    expect((await raw(bugsFrom(['bad-json-500']))).status).toBe(500);
+  });
+});

@@ -22,6 +22,18 @@ export const BUGS = {
     lesson: 'state-transitions',
     summary: 'Unfreeze only checks "not active", so a blocked card can be reactivated.',
   },
+  'history-amount-string': {
+    lesson: 'asserting-responses',
+    summary: 'GET /api/transfers returns amounts as strings ("5000") instead of numbers.',
+  },
+  'transfer-idor': {
+    lesson: 'authn-authz',
+    summary: 'GET /api/transfers/:id never checks the caller took part, so anyone signed in can read any transfer.',
+  },
+  'bad-json-500': {
+    lesson: 'negative-tests',
+    summary: 'POST /api/transfers with a body that is not JSON crashes with 500 instead of 400 BAD_JSON.',
+  },
 } as const;
 
 export type BugName = keyof typeof BUGS;

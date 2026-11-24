@@ -9,6 +9,7 @@ import { defectReports } from './lessons/defect-reports';
 import { exploratory } from './lessons/exploratory';
 import { errorsDefectsFailures, testLevels, whyWeTest } from './lessons/module-1a';
 import { confirmationRegression, planningReporting, reviewsStatic, riskBased } from './lessons/module-1b';
+import { assertingResponses, authnAuthz, httpForTesters, negativeTests } from './lessons/module-3';
 import { partitionsBoundaries } from './lessons/partitions-boundaries';
 import { stateTransitions } from './lessons/state-transitions';
 import type { Lesson } from './types';
@@ -28,7 +29,13 @@ export const lessons: Record<string, Lesson> = {
   [exploratory.id]: exploratory,
   [acceptanceCriteria.id]: acceptanceCriteria,
   [defectReports.id]: defectReports,
+  [httpForTesters.id]: httpForTesters,
+  [assertingResponses.id]: assertingResponses,
+  [authnAuthz.id]: authnAuthz,
+  [negativeTests.id]: negativeTests,
 };
+
+export { httpForTesters, assertingResponses, authnAuthz, negativeTests };
 
 export { whyWeTest, errorsDefectsFailures, testLevels, confirmationRegression, reviewsStatic, riskBased, planningReporting };
 export { acceptanceCriteria, coverage, decisionTables, defectReports, exploratory, partitionsBoundaries, stateTransitions };

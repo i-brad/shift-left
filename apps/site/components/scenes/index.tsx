@@ -9,6 +9,8 @@ import { FeeScene } from './FeeScene';
 import { BoardScene } from './BoardScene';
 import { CoverageScene } from './CoverageScene';
 import { PipelineScene } from './PipelineScene';
+import { RequestScene, statusLine, statusTone } from './RequestScene';
+import { ASSERTIONS, BODIES, PATHS, type ApiRequest, type Assertion } from '@shift-left/sim';
 
 const naira = (v: number) => `${v < 0 ? '-' : ''}₦${Math.abs(v).toLocaleString('en-NG')}`;
 
@@ -21,6 +23,7 @@ export function SceneView({ ev, scene, reducedMotion, hideResults }: { ev: StepE
   if (ev.kind === 'fees' && scene.kind === 'fees') return <FeeScene evalState={ev} scene={scene} reducedMotion={reducedMotion} hideResults={hideResults} />;
   if (ev.kind === 'card' && scene.kind === 'card') return <CardScene evalState={ev} scene={scene} reducedMotion={reducedMotion} hideResults={hideResults} />;
   if (ev.kind === 'pipeline') return <PipelineScene evalState={ev} reducedMotion={reducedMotion} />;
+  if (ev.kind === 'request' && scene.kind === 'request') return <RequestScene evalState={ev} rooms={!!scene.rooms} reducedMotion={reducedMotion} hideResults={hideResults} />;
   if (ev.kind === 'board') return <BoardScene evalState={ev} reducedMotion={reducedMotion} />;
   if (ev.kind === 'coverage' && scene.kind === 'coverage') return <CoverageScene evalState={ev} scene={scene} reducedMotion={reducedMotion} />;
   return null;
@@ -68,6 +71,18 @@ export function metricsFor(ev: StepEval, predicted: boolean): MetricSpec[] {
         { label: 'Run time', value: `${m.seconds} s`, tone: 'neutral' },
       ];
     }
+    case 'request': {
+      const seen = [...new Set(ev.history.map((h) => h.actual.status))].sort();
+      const off = ev.history.filter((h) => !h.matches).length;
+      const shown = predicted && ev.history.length > 0 && JSON.stringify(ev.history.at(-1)!.req) === JSON.stringify(ev.req);
+      return [
+        { label: 'Status', value: shown ? ev.current.actual.status : '?', tone: shown && statusTone(ev.current.actual.status) === 'bad' ? 'bad' : 'neutral' },
+        { label: 'Matches spec', value: shown ? (ev.current.matches ? 'yes' : 'no') : '?', tone: shown ? (ev.current.matches ? 'good' : 'bad') : 'neutral' },
+        { label: 'Requests sent', value: ev.history.length, tone: 'neutral' },
+        { label: 'Codes seen', value: seen.length ? seen.join(' ') : '—', tone: 'neutral' },
+        { label: 'Off-spec answers', value: predicted ? off : '?', tone: predicted && off > 0 ? 'bad' : 'neutral' },
+      ];
+    }
     case 'coverage': {
       const m = ev.run.metrics;
       return [
@@ -100,13 +115,14 @@ export function legendFor(kind: StepEval['kind']): LegendItem[] {
   if (kind === 'boundaries')
     return [...base, { label: 'should be rejected', color: 'var(--sl-pink)' }, { label: 'should be accepted', color: 'var(--sl-sky)' }, { label: 'request', color: 'var(--sl-request)', round: true }];
   if (kind === 'pipeline') return [{ label: 'check on', color: 'var(--sl-sky)' }, { label: 'check off', color: '#fffaf1' }, { label: 'defect caught', color: 'var(--sl-sage)' }, { label: 'reached customers', color: 'var(--sl-rose)' }];
+  if (kind === 'request') return [{ label: 'your request', color: 'var(--sl-lavender)' }, { label: '2xx success', color: 'var(--sl-sage)' }, { label: '4xx refused', color: 'var(--sl-butter)' }, { label: '5xx / off-spec', color: 'var(--sl-rose)' }];
   if (kind === 'board') return [{ label: 'picked', color: 'var(--sl-lavender)' }, { label: 'right', color: 'var(--sl-sage)' }, { label: 'wrong', color: 'var(--sl-rose)' }, { label: 'missed', color: 'var(--sl-pink)' }];
   if (kind === 'coverage') return [{ label: 'line ran', color: 'var(--sl-sage)' }, { label: 'decision ran', color: 'var(--sl-butter)' }, { label: 'never ran', color: '#fffaf1' }, { label: 'wrong result', color: 'var(--sl-rose)' }];
   if (kind === 'fees') return [...base, { label: 'not tested yet', color: '#fffaf1' }, { label: 'fee charged', color: 'var(--sl-butter)' }];
   return [...base, { label: 'untested', color: '#fffdf8' }, { label: 'your card', color: 'var(--sl-butter)' }];
 }
 
-type ControlsProps = { ev: StepEval; scene: SceneState; learner: Learner; setLearner: (f: (l: Learner) => Learner) => void };
+type ControlsProps = { ev: StepEval; scene: SceneState; learner: Learner; setLearner: (f: (l: Learner) => Learner) => void; hideResults?: boolean };
 
 /** The scene's controls, docked under it. */
 export function SceneControls(props: ControlsProps) {
@@ -123,7 +139,84 @@ export function SceneControls(props: ControlsProps) {
       return <CoverageControls {...props} />;
     case 'pipeline':
       return <PipelineControls {...props} />;
+    case 'request':
+      return <RequestControls {...props} />;
   }
+}
+
+const AUTHS = [
+  { id: 'none', label: 'Logged out' },
+  { id: 'ada', label: 'Ada' },
+  { id: 'tunde', label: 'Tunde' },
+] as const;
+const pretty = (v: unknown) => JSON.stringify(v, null, 2);
+
+function RequestControls({ ev, scene, learner, setLearner, hideResults }: ControlsProps) {
+  if (ev.kind !== 'request' || scene.kind !== 'request') return null;
+  const { req, current, history } = ev;
+  const set = (patch: Partial<ApiRequest>) => setLearner((l) => ({ ...l, req: { ...(l.req ?? req), ...patch } }));
+  const send = () => setLearner((l) => ({ ...l, req: l.req ?? req, sent: [...l.sent, l.req ?? req] }));
+  const sentThis = !hideResults && history.length > 0 && JSON.stringify(history.at(-1)!.req) === JSON.stringify(req);
+  const toggleAssert = (a: Assertion) => setLearner((l) => ({ ...l, assertions: l.assertions.includes(a) ? l.assertions.filter((x) => x !== a) : [...l.assertions, a] }));
+  const body = BODIES.find((b) => b.id === req.body)!;
+  return (
+    <div className="req-ctl">
+      <div className="switches" role="group" aria-label="Request">
+        <Toggle label="Method" options={['GET', 'POST', 'DELETE'] as const} value={req.method} onChange={(v) => set({ method: v })} />
+        <Toggle label="Path" options={PATHS} value={req.path} onChange={(v) => set({ path: v })} />
+        <Toggle label="Logged in as" options={AUTHS.map((a) => a.label)} value={AUTHS.find((a) => a.id === req.auth)!.label} onChange={(v) => set({ auth: AUTHS.find((a) => a.label === v)!.id })} />
+        {req.method === 'POST' && <Toggle label="Body" options={BODIES.map((b) => b.label)} value={body.label} onChange={(v) => set({ body: BODIES.find((b) => b.label === v)!.id })} />}
+        <Button variant="primary" onClick={send}>Send</Button>
+      </div>
+      <div className="req-panes">
+        <div>
+          <p className="pane-title">Request</p>
+          <pre className="json">{`${req.method} ${req.path}\n${req.auth === 'none' ? '(no session cookie)' : `Cookie: kudi_session=<${req.auth}>`}${req.method === 'POST' ? `\n\n${body.raw || '(empty body)'}` : ''}`}</pre>
+        </div>
+        <div id="probe-result" aria-live="polite">
+          <p className="pane-title">
+            Kudi answered {sentThis && <Chip tone={statusTone(current.actual.status) === 'bad' ? 'bad' : statusTone(current.actual.status) === 'good' ? 'good' : 'neutral'}>{statusLine(current.actual.status)}</Chip>}
+          </p>
+          <pre className="json">{sentThis ? pretty(current.actual.body) : hideResults ? 'Make your prediction first.' : 'Press Send.'}</pre>
+        </div>
+        <div>
+          <p className="pane-title">The spec says {sentThis && <Chip tone="neutral">{statusLine(current.expected.status)}</Chip>}</p>
+          <pre className="json">{sentThis ? pretty(current.expected.body) : '…'}</pre>
+        </div>
+      </div>
+      {scene.assertions && (
+        <div className="req-asserts" role="group" aria-label="Assertions">
+          <span className="pane-title">Your test asserts</span>
+          {ASSERTIONS.map((a) => (
+            <button key={a.id} type="button" className="opt" aria-pressed={learner.assertions.includes(a.id)} onClick={() => toggleAssert(a.id)}>
+              {learner.assertions.includes(a.id) ? '✓ ' : ''}
+              {a.label}
+            </button>
+          ))}
+          <span className="result" data-testid="assert-result">
+            {learner.assertions.length === 0
+              ? 'Pick at least one.'
+              : current.matches
+                ? 'Response matches the spec: your test passes, correctly.'
+                : ev.catching.length > 0
+                  ? `Test FAILS on ${ev.catching.join(' + ')}: you caught the bug.`
+                  : 'Test passes, but the response is wrong. The bug got past.'}
+          </span>
+        </div>
+      )}
+      {history.length > 0 && !hideResults && (
+        <ol className="req-history" aria-label="Sent">
+          {history.slice(-8).map((h, i) => (
+            <li key={i}>
+              {h.req.method} {h.req.path} · {AUTHS.find((a) => a.id === h.req.auth)!.label}
+              {h.req.method === 'POST' ? ` · ${BODIES.find((b) => b.id === h.req.body)!.label}` : ''} → <b>{h.actual.status}</b>
+              {!h.matches && <Chip tone="bad">spec {h.expected.status}</Chip>}
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
 }
 
 function PipelineControls({ ev, setLearner }: ControlsProps) {

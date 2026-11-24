@@ -1,0 +1,6 @@
+{
+  "title": "06 · API testing: status, shape, authorisation, negatives",
+  "lesson": "http-for-testers",
+  "bug": "history-amount-string,transfer-idor,bad-json-500",
+  "ctfl": []
+}

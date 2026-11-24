@@ -21,7 +21,7 @@ The checklist for finishing the course. Work top to bottom; tick a lesson only w
 | `board` ✅ | Select / classify tiles on a 3D board (findings, criteria, report fields, risks, review comments) | Exploratory, Acceptance criteria, Defect reports, Reviews, Risk-based, Planning, Errors/defects/failures, Why we test |
 | `coverage` ✅ | Pick test inputs; 3D code paths light up; statement vs branch % | Statement and branch coverage |
 | `pipeline` ✅ | Place checks on a conveyor of stages; see where a bug is caught and what it costs | Test levels, Confirmation vs regression, PR checks, Reports, Secrets, Parallel runs |
-| `request` | Edit method, path, headers, body; see the response; toggle assertions | HTTP, Asserting responses, Authn vs authz, Negative tests, OWASP, Pact |
+| `request` ✅ | Edit method, path, headers, body; see the response; toggle assertions | HTTP, Asserting responses, Authn vs authz, Negative tests, OWASP, Pact |
 | `timing` | Turn a latency dial; tests wait, sleep or retry on a timeline | Waiting, Flaky tests, Load testing (k6) |
 | `page` | Redesign a 3D page; locators hold or snap | Locators, Fixtures and isolation, Traces, Structure, Test data, Maestro |
 
@@ -52,10 +52,10 @@ The checklist for finishing the course. Work top to bottom; tick a lesson only w
 ### Module 3 · API testing
 | | Lesson | Scene | Kudi feature / bug | Exercise |
 | --- | --- | --- | --- | --- |
-| [ ] | HTTP for testers | request | — | 06 calling endpoints |
-| [ ] | Asserting on responses | request | transfer response / `history-amount-string` | 07 |
-| [ ] | Authentication vs authorisation | request | other user's transfer / `history-idor` | 08 |
-| [ ] | Negative tests | request | malformed JSON / `transfers-500-on-bad-json` | 09 |
+| [x] | HTTP for testers | request | — | 06-api (one exercise for the module) |
+| [x] | Asserting on responses | request | `history-amount-string` | 06-api |
+| [x] | Authentication vs authorisation | request | `GET /api/transfers/:id`, `transfer-idor` | 06-api |
+| [x] | Negative tests | request | `bad-json-500` | 06-api |
 
 ### Module 4 · Web automation
 | | Lesson | Scene | Kudi feature / bug | Exercise |

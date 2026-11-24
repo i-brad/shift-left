@@ -14,7 +14,8 @@ export function createApp({ db, bugs = noBugs, testRoutes = true }: { db: Db; bu
 
   const readJson = async (c: Context) => {
     try {
-      return (await c.req.json()) as Record<string, unknown>;
+      const body: unknown = await c.req.json();
+      return body && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>) : null;
     } catch {
       return null;
     }
@@ -63,7 +64,20 @@ export function createApp({ db, bugs = noBugs, testRoutes = true }: { db: Db; bu
     return c.json({ name, email, balance, tier });
   });
 
-  app.get('/transfers', (c) => c.json(db.history(c.get('user').id)));
+  app.get('/transfers', (c) => {
+    const rows = db.history(c.get('user').id) as { amount: number }[];
+    return c.json(bugs.on('history-amount-string') ? rows.map((r) => ({ ...r, amount: String(r.amount) })) : rows);
+  });
+
+  app.get('/transfers/:id', (c) => {
+    const me = c.get('user');
+    const t = db.transferById(Number(c.req.param('id')), me.id);
+    // Only the sender and the recipient may see a transfer. Everyone else gets 404, so ids don't leak.
+    const allowed = t && (bugs.on('transfer-idor') || t.fromId === me.id || t.toId === me.id);
+    if (!t || !allowed) return c.json({ error: 'NOT_FOUND' }, 404);
+    const { fromId: _f, toId: _t, ...view } = t;
+    return c.json(view);
+  });
 
   app.get('/fees', (c) => {
     const amount = Number(c.req.query('amount'));
@@ -97,7 +111,10 @@ export function createApp({ db, bugs = noBugs, testRoutes = true }: { db: Db; bu
   app.post('/transfers', async (c) => {
     const me = c.get('user');
     const body = await readJson(c);
-    if (!body) return c.json({ error: 'BAD_JSON' }, 400);
+    if (!body) {
+      if (bugs.on('bad-json-500')) throw new Error('Unexpected end of JSON input');
+      return c.json({ error: 'BAD_JSON' }, 400);
+    }
 
     const amount = validateAmount(body.amount, bugs);
     if (!amount.ok) return fail(c, amount.error);
