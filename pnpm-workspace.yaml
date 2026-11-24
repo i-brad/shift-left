@@ -2,3 +2,6 @@ packages:
   - apps/*
   - packages/*
   - exercises
+
+allowBuilds:
+  esbuild: true
