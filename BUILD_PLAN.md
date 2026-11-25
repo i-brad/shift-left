@@ -76,10 +76,10 @@ The checklist for finishing the course. Work top to bottom; tick a lesson only w
 ### Module 6 · CI/CD
 | | Lesson | Scene | Exercise |
 | --- | --- | --- | --- |
-| [ ] | Checks on pull requests | pipeline | 17 workflow |
-| [ ] | Reports and traces | pipeline | — |
-| [ ] | Secrets | pipeline | — |
-| [ ] | Parallel runs | pipeline | — |
+| [x] | Checks on pull requests | pipeline (time budget, nightly) | 09-ci (workflow checked against rules) |
+| [x] | Reports and traces | board | 09-ci |
+| [x] | Secrets | board | 09-ci |
+| [x] | Parallel runs | suite (workers) | 09-ci |
 
 ### Module 7 · Branches (optional)
 | | Lesson | Scene |

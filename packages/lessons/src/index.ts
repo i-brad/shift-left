@@ -12,6 +12,7 @@ import { confirmationRegression, planningReporting, reviewsStatic, riskBased } f
 import { assertingResponses, authnAuthz, httpForTesters, negativeTests } from './lessons/module-3';
 import { fixtures, locators, traces, waiting } from './lessons/module-4';
 import { flaky, structure, testData } from './lessons/module-5';
+import { parallel, prChecks, reports, secrets } from './lessons/module-6';
 import { partitionsBoundaries } from './lessons/partitions-boundaries';
 import { stateTransitions } from './lessons/state-transitions';
 import type { Lesson } from './types';
@@ -42,7 +43,13 @@ export const lessons: Record<string, Lesson> = {
   [structure.id]: structure,
   [testData.id]: testData,
   [flaky.id]: flaky,
+  [prChecks.id]: prChecks,
+  [reports.id]: reports,
+  [secrets.id]: secrets,
+  [parallel.id]: parallel,
 };
+
+export { prChecks, reports, secrets, parallel };
 
 export { structure, testData, flaky };
 

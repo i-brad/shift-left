@@ -234,7 +234,8 @@ describe('pipeline lessons', () => {
         const id = (s.goal!.check as { pipeline: string }).pipeline;
         const all = lesson.pipelines![id]!.stages.map((st) => st.id);
         expect(evaluateStep(s, learner({ pipes: { [id]: [] } }), lesson).goalMet).toBe(false);
-        expect(evaluateStep(s, learner({ pipes: { [id]: all } }), lesson).goalMet).toBe(true);
+        // Time budgets can make "everything on" too slow; those goals are tested per lesson.
+        if ((s.goal!.check as { maxSeconds?: number }).maxSeconds === undefined) expect(evaluateStep(s, learner({ pipes: { [id]: all } }), lesson).goalMet).toBe(true);
       }
     });
   }
@@ -355,5 +356,28 @@ describe('Module 5 · Framework', () => {
     expect(f('shared', 'auto', 0)).toBe(false);
     expect(f('fresh', 'auto', 0)).toBe(true);
     expect(f('fresh', 'auto', 2)).toBe(true);
+  });
+});
+
+describe('Module 6 · CI/CD', () => {
+  const ev = (lessonId: string, stepId: string, o: Partial<Learner> = {}) => {
+    const lesson = lessons[lessonId]!;
+    return evaluateStep(stepOf(lesson, stepId), learner(o), lesson);
+  };
+  it('PR checks: the full suite blows the budget; nightly gets everything', () => {
+    expect(ev('pr-checks', 'budget', { pipes: { pr: ['lint', 'unit', 'api', 'smoke', 'full'] } }).goalMet).toBe(false);
+    expect(ev('pr-checks', 'budget', { pipes: { pr: ['lint', 'unit', 'smoke'] } }).goalMet).toBe(false);
+    expect(ev('pr-checks', 'budget', { pipes: { pr: ['unit', 'api', 'smoke'] } }).goalMet).toBe(true);
+    expect(ev('pr-checks', 'nightly', { pipes: { twoTier: ['lint', 'unit', 'api', 'smoke'] } }).goalMet).toBe(false);
+    expect(ev('pr-checks', 'nightly', { pipes: { twoTier: ['lint', 'unit', 'api', 'smoke', 'nightly'] } }).goalMet).toBe(true);
+  });
+  it('parallel: 54 s serial; fresh data on 4 workers is under 20 s; shared data is not clean', () => {
+    const s = ev('parallel', 'serial');
+    expect(s.kind === 'suite' && s.result.metrics.seconds).toBe(54);
+    const p = (data: 'shared' | 'reset' | 'fresh', workers: number) => ev('parallel', 'more', { suites: { big: { data, workers } } }).goalMet;
+    expect(p('fresh', 1)).toBe(false);
+    expect(p('reset', 4)).toBe(false);
+    expect(p('shared', 4)).toBe(false);
+    expect(p('fresh', 4)).toBe(true);
   });
 });

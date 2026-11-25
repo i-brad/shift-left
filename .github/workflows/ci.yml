@@ -27,6 +27,8 @@ jobs:
             if pnpm exercise $ex --solution; then echo "$ex solution should fail with the bug on"; exit 1; fi
             pnpm exercise $ex --solution --fixed
           done
+          pnpm exercise 09-ci --solution
+          if pnpm exercise 09-ci; then echo "09-ci starter should break the rules"; exit 1; fi
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

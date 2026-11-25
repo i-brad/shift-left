@@ -52,10 +52,10 @@ export const course: CourseModule[] = [
   },
   {
     n: 6, title: 'CI/CD', color: '#6cc4b4', lessons: [
-      { id: 'pr-checks', title: 'Checks on pull requests', ctfl: ['FL-2.1'], built: false },
-      { id: 'reports', title: 'Reports and traces', built: false },
-      { id: 'secrets', title: 'Secrets', built: false },
-      { id: 'parallel', title: 'Parallel runs', built: false },
+      { id: 'pr-checks', title: 'Checks on pull requests', ctfl: ['FL-2.1'], built: true },
+      { id: 'reports', title: 'Reports and traces', built: true },
+      { id: 'secrets', title: 'Secrets', built: true },
+      { id: 'parallel', title: 'Parallel runs', built: true },
     ],
   },
   {

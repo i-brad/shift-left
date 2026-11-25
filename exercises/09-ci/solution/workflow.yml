@@ -1,0 +1,57 @@
+# Reference solution for exercise 09.
+name: Kudi tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast:
+    name: Typecheck, unit and API tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter kudi typecheck
+      - run: pnpm --filter kudi test
+
+  ui:
+    name: UI tests (shard ${{ matrix.shard }}/2)
+    needs: fast
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter kudi exec playwright install --with-deps chromium
+      - run: pnpm --filter kudi e2e -- --shard=${{ matrix.shard }}/2
+        env:
+          STAGING_PASSWORD: ${{ secrets.STAGING_PASSWORD }}
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-${{ matrix.shard }}
+          path: |
+            apps/kudi/playwright-report
+            apps/kudi/test-results
+          retention-days: 14

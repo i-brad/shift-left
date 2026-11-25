@@ -42,6 +42,7 @@ exercises/
   06-api/                 Module 3: status, shape, authorisation, negative tests
   07-web/                 Module 4: locators, waits, fixtures, traces (starts the web app too)
   08-framework/           Module 5: page objects, factories, 4 parallel workers
+  09-ci/                  Module 6: a GitHub Actions workflow, checked against rules
 scripts/
   exercise.mjs     Runs an exercise against a fresh Kudi with its bug on or off
 ```
@@ -95,4 +96,4 @@ A new **kind** of scene needs: a pure simulation in `packages/sim`, an evaluator
 
 ## Status
 
-Modules 1–5 complete (25 lessons). See BUILD_PLAN.md for the rest.
+Modules 1–6 complete (29 lessons). See BUILD_PLAN.md for the rest.

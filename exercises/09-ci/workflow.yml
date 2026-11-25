@@ -1,0 +1,23 @@
+# Exercise 09 · Your GitHub Actions workflow for Kudi. See README.md.
+# `pnpm exercise 09-ci` checks it against the rules in check.test.ts.
+name: Kudi tests
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install
+      - run: sleep 30 # wait for things to be ready
+      - run: pnpm --filter kudi test
+      - run: pnpm --filter kudi e2e
+        env:
+          STAGING_PASSWORD: kudi-ada-pass

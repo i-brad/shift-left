@@ -1,0 +1,7 @@
+{
+  "title": "09 · CI: a workflow that guards pull requests",
+  "lesson": "pr-checks",
+  "bug": "",
+  "runner": "vitest",
+  "ctfl": ["FL-2.1"]
+}
