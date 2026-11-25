@@ -45,9 +45,9 @@ export const course: CourseModule[] = [
   },
   {
     n: 5, title: 'Framework', color: '#7fb0ea', lessons: [
-      { id: 'structure', title: 'Structure that scales', built: false },
-      { id: 'test-data', title: 'Test data strategy', built: false },
-      { id: 'flaky', title: 'Flaky tests', built: false },
+      { id: 'structure', title: 'Structure that scales', built: true },
+      { id: 'test-data', title: 'Test data strategy', built: true },
+      { id: 'flaky', title: 'Flaky tests', built: true },
     ],
   },
   {

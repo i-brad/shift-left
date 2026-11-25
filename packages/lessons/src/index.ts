@@ -11,6 +11,7 @@ import { errorsDefectsFailures, testLevels, whyWeTest } from './lessons/module-1
 import { confirmationRegression, planningReporting, reviewsStatic, riskBased } from './lessons/module-1b';
 import { assertingResponses, authnAuthz, httpForTesters, negativeTests } from './lessons/module-3';
 import { fixtures, locators, traces, waiting } from './lessons/module-4';
+import { flaky, structure, testData } from './lessons/module-5';
 import { partitionsBoundaries } from './lessons/partitions-boundaries';
 import { stateTransitions } from './lessons/state-transitions';
 import type { Lesson } from './types';
@@ -38,7 +39,12 @@ export const lessons: Record<string, Lesson> = {
   [waiting.id]: waiting,
   [fixtures.id]: fixtures,
   [traces.id]: traces,
+  [structure.id]: structure,
+  [testData.id]: testData,
+  [flaky.id]: flaky,
 };
+
+export { structure, testData, flaky };
 
 export { locators, waiting, fixtures, traces };
 

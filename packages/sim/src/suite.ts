@@ -19,6 +19,8 @@ export type SuiteTest = {
   sleeps?: boolean;
   /** Finds a real bug: fails every time, whatever you do. */
   realBug?: boolean;
+  /** Can only reach the bug with data the seed doesn't have (needs a factory, i.e. data 'fresh'). */
+  needsFactory?: boolean;
 };
 
 export type SuiteDef = { title: string; tests: SuiteTest[]; deadlineSeconds?: number };
@@ -61,7 +63,7 @@ function runOnce(def: SuiteDef, o: SuiteOptions, run: number): SuiteRun {
   }
   const firstAttempt = (s: (typeof slots)[number]): Attempt => {
     const base = { worker: s.worker, start: s.start, end: s.end };
-    if (s.t.realBug) return { ...base, passed: false, cause: 'bug' };
+    if (s.t.realBug && !(s.t.needsFactory && o.data !== 'fresh')) return { ...base, passed: false, cause: 'bug' };
     const clash = slots.some((w) => {
       if (w === s) return false;
       if (o.data === 'shared') return !s.t.writes && w.t.account === s.t.account && w.t.writes && w.start < s.start;

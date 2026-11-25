@@ -66,6 +66,15 @@ export function openDb(path: string) {
         db.prepare('INSERT INTO cards (user_id) VALUES (?)').run(Number(r.lastInsertRowid));
       }
     },
+    /** Test factory: a new user with a unique email. */
+    createUser({ name, balance, tier }: { name: string; balance: number; tier: 'basic' | 'plus' }) {
+      const n = (db.prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number }).n + 1;
+      const email = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${n}-${randomBytes(3).toString('hex')}@kudi.test`;
+      const password = `kudi-${randomBytes(6).toString('hex')}`;
+      const r = db.prepare('INSERT INTO users (name, email, password, balance, tier) VALUES (?, ?, ?, ?, ?)').run(name, email, hashPassword(password), balance, tier);
+      db.prepare('INSERT INTO cards (user_id) VALUES (?)').run(Number(r.lastInsertRowid));
+      return { name, email, password, balance, tier };
+    },
     userByEmail(email: string) {
       return db.prepare('SELECT id, name, email, balance, tier, password FROM users WHERE email = ?').get(email) as (User & { password: string }) | undefined;
     },

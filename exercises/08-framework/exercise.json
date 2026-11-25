@@ -1,0 +1,8 @@
+{
+  "title": "08 · Framework: page objects, factories, parallel",
+  "lesson": "structure",
+  "bug": "empty-account-500",
+  "web": true,
+  "parallel": true,
+  "ctfl": []
+}

@@ -196,8 +196,9 @@ export function SceneControls(props: ControlsProps) {
   }
 }
 
-function PageControls({ ev, learner, setLearner }: ControlsProps) {
+function PageControls({ ev, scene, learner, setLearner }: ControlsProps) {
   if (ev.kind !== 'page') return null;
+  const choose = scene.kind === 'page' && !!scene.choose;
   if (ev.mode === 'trace') {
     const f = ev.frames.find((x) => x.id === ev.frame);
     return (
@@ -257,7 +258,7 @@ function PageControls({ ev, learner, setLearner }: ControlsProps) {
           return (
             <li key={el.id} data-state={!r.code ? 'none' : r.holds ? 'found' : 'lost'}>
               <span className="item-label">{el.label}</span>
-              <Toggle label={`Locator: ${el.label}`} options={kinds.map((k) => k.label)} value={LOCATOR_KINDS.find((k) => k.id === r.kind)?.label ?? ''} onChange={(v) => setLearner((l) => ({ ...l, locators: { ...l.locators, [el.id]: LOCATOR_KINDS.find((k) => k.label === v)!.id as LocatorKind } }))} />
+              {choose && <Toggle label={`Locator: ${el.label}`} options={kinds.map((k) => k.label)} value={LOCATOR_KINDS.find((k) => k.id === r.kind)?.label ?? ''} onChange={(v) => setLearner((l) => ({ ...l, locators: { ...l.locators, [el.id]: LOCATOR_KINDS.find((k) => k.label === v)!.id as LocatorKind } }))} />}
               {r.code && (
                 <span className="loc-code">
                   <code>{`page.${r.code}`}</code> <Chip tone={r.holds ? 'good' : 'bad'}>{r.holds ? 'found' : 'not found'}</Chip>

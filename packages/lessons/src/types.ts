@@ -121,6 +121,8 @@ export type PageScene = {
   changes?: readonly import('@shift-left/sim').PageChange[] | 'learner';
   /** Learner picks a locator per element. */
   choose?: boolean;
+  /** Locators already in the suite; the learner's choices override them. */
+  preset?: import('@shift-left/sim').LocatorChoices;
   /** Show N tests using the locators, with or without a page object. */
   structure?: { tests: number; pageObject: boolean | 'learner' };
 };

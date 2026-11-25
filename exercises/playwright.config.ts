@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
  */
 const exercise = process.env.EXERCISE;
 if (!exercise) throw new Error('Set EXERCISE, or run: pnpm exercise <name>');
-const meta = JSON.parse(readFileSync(new URL(`./${exercise}/exercise.json`, import.meta.url), 'utf8')) as { bug: string; web?: boolean; env?: Record<string, string> };
+const meta = JSON.parse(readFileSync(new URL(`./${exercise}/exercise.json`, import.meta.url), 'utf8')) as { bug: string; web?: boolean; env?: Record<string, string>; parallel?: boolean };
 const fixed = !!process.env.FIXED;
 const bugs = fixed ? '' : meta.bug;
 /** Extra switches (redesign, latency) count as part of "the bug" for this exercise. */
@@ -22,7 +22,8 @@ export default defineConfig({
   testMatch: process.env.SOLUTION ? 'solution/*.spec.ts' : '*.spec.ts',
   testIgnore: process.env.SOLUTION ? [] : ['solution/**'],
   reporter: [['list']],
-  workers: 1,
+  workers: meta.parallel ? 4 : 1,
+  fullyParallel: !!meta.parallel,
   use: {
     baseURL: `http://localhost:${meta.web ? webPort : port}`,
     trace: 'retain-on-failure',

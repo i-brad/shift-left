@@ -59,6 +59,15 @@ export function createApp({ db, bugs = noBugs, testRoutes = true, latencyMs = 0 
       db.reset();
       return c.body(null, 204);
     });
+
+    /** Factory: POST /api/test/users { name?, balance?, tier? } → a fresh user and its password. */
+    app.post('/test/users', async (c) => {
+      const body = (await readJson(c)) ?? {};
+      const balance = Number.isInteger(body.balance) && (body.balance as number) >= 0 ? (body.balance as number) : 100_000;
+      const tier = body.tier === 'plus' ? 'plus' : 'basic';
+      const name = typeof body.name === 'string' && body.name.trim() ? body.name.trim().slice(0, 40) : 'Test user';
+      return c.json(db.createUser({ name, balance, tier }), 201);
+    });
   }
 
   // Everything below needs a session.
@@ -132,6 +141,7 @@ export function createApp({ db, bugs = noBugs, testRoutes = true, latencyMs = 0 
     if (!amount.ok) return fail(c, amount.error);
     const express = body.express === true;
     const fee = calculateFee(me.tier, amount.amount, express, bugs);
+    if (me.balance === 0 && bugs.on('empty-account-500')) throw new Error('Cannot read properties of undefined (reading "limit")');
     if (amount.amount + fee > me.balance) return fail(c, 'INSUFFICIENT_FUNDS');
 
     const to = typeof body.to === 'string' ? db.userByEmail(body.to.trim().toLowerCase()) : undefined;

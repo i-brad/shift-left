@@ -227,3 +227,25 @@ describe('Module 4 switches', () => {
     expect(Date.now() - t).toBeGreaterThanOrEqual(590);
   });
 });
+
+describe('Module 5 factory', () => {
+  const make = async (s: ReturnType<typeof setup>, data: object) => (await s.call('POST', '/test/users', data)).json as { email: string; password: string };
+  it('creates unique users with chosen balance and tier', async () => {
+    const s = setup();
+    const a = await make(s, { name: 'Zero', balance: 0 });
+    const b = await make(s, { name: 'Zero', balance: 0 });
+    expect(a.email).not.toBe(b.email);
+    await s.call('POST', '/sessions', { email: a.email, password: a.password });
+    expect((await s.call('GET', '/me')).json).toMatchObject({ name: 'Zero', balance: 0, tier: 'basic' });
+  });
+
+  it('₦0 account: 422 INSUFFICIENT_FUNDS; 500 with empty-account-500', async () => {
+    for (const [bugs, status] of [[noBugs, 422], [bugsFrom(['empty-account-500']), 500]] as const) {
+      const s = setup(bugs);
+      const u = await make(s, { balance: 0 });
+      await s.call('POST', '/sessions', { email: u.email, password: u.password });
+      const res = await s.call('POST', '/transfers', { to: 'tunde@kudi.test', amount: 100 }).catch(() => ({ status: 500 }));
+      expect(res.status).toBe(status);
+    }
+  });
+});

@@ -34,6 +34,10 @@ export const BUGS = {
     lesson: 'traces',
     summary: 'GET /api/me returns the balance from when you logged in, so the balance card never updates after a transfer.',
   },
+  'empty-account-500': {
+    lesson: 'test-data',
+    summary: 'Sending from an account with ₦0 crashes with 500 instead of 422 INSUFFICIENT_FUNDS. Seed accounts never have ₦0.',
+  },
   'bad-json-500': {
     lesson: 'negative-tests',
     summary: 'POST /api/transfers with a body that is not JSON crashes with 500 instead of 400 BAD_JSON.',

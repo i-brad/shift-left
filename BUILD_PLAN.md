@@ -69,9 +69,9 @@ The checklist for finishing the course. Work top to bottom; tick a lesson only w
 ### Module 5 · Framework
 | | Lesson | Scene | Exercise |
 | --- | --- | --- | --- |
-| [ ] | Structure that scales | page | 14 page objects / fixtures |
-| [ ] | Test data strategy | page | 15 factories |
-| [ ] | Flaky tests | timing | 16 |
+| [x] | Structure that scales | page (structure) | 08-framework (one exercise for the module) |
+| [x] | Test data strategy | suite, `empty-account-500`, `POST /api/test/users` | 08-framework |
+| [x] | Flaky tests | suite (10 runs) | 08-framework |
 
 ### Module 6 · CI/CD
 | | Lesson | Scene | Exercise |

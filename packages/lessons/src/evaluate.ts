@@ -275,7 +275,7 @@ function evalPage(step: Step, scene: PageScene, learner: Learner): PageEval {
   }
   const learnerChanges = scene.changes === 'learner';
   const changes = learnerChanges ? learner.pageChanges : [...((scene.changes as readonly PageChange[] | undefined) ?? [])];
-  const choices = learner.locators;
+  const choices = { ...(scene.preset ?? {}), ...(scene.choose ? learner.locators : {}) };
   const result = runLocators(choices, changes);
   let structure: Extract<PageEval, { mode: 'locators' }>['structure'];
   if (scene.structure) {

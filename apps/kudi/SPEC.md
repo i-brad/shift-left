@@ -12,7 +12,7 @@ Kudi is a made-up fintech app that exists to be tested. This file is the **test 
 
 Every account starts with an **active** card.
 
-These are test accounts in a local database. `POST /api/test/reset` restores them.
+These are test accounts in a local database. `POST /api/test/reset` restores them. `POST /api/test/users { "name"?, "balance"?, "tier"? }` creates a fresh user with a unique email and returns `{ name, email, password, balance, tier }` (defaults: ₦100,000, Basic). Test routes exist only outside production.
 
 ## Logging in
 

@@ -314,3 +314,46 @@ describe('Module 4 · Web automation', () => {
     expect(ev('traces', 'scrub', { traceFrame: 'refresh' }).goalMet).toBe(true);
   });
 });
+
+describe('Module 5 · Framework', () => {
+  const ev = (lessonId: string, stepId: string, o: Partial<Learner> = {}) => {
+    const lesson = lessons[lessonId]!;
+    return evaluateStep(stepOf(lesson, stepId), learner(o), lesson);
+  };
+  const places = (e: ReturnType<typeof ev>) => (e.kind === 'page' && e.mode === 'locators' ? e.structure?.places : undefined);
+
+  it('structure: 36 edits, 3 with a page object, 0 with good locators', () => {
+    expect(places(ev('structure', 'copies'))).toBe(0);
+    expect(places(ev('structure', 'redesign'))).toBe(36);
+    expect(ev('structure', 'page-object').goalMet).toBe(false);
+    expect(ev('structure', 'page-object', { pageObject: true }).goalMet).toBe(true);
+    expect(ev('structure', 'both').goalMet).toBe(false);
+    expect(ev('structure', 'both', { locators: { recipient: 'label', amount: 'label', send: 'role' } }).goalMet).toBe(true);
+  });
+
+  it('test data: seed setup takes 26 s and misses the ₦0 bug', () => {
+    const e = ev('test-data', 'seed');
+    expect(e.kind === 'suite' && e.result.metrics).toMatchObject({ seconds: 26, failing: 0, realBugCaught: false });
+  });
+
+  it('test data: only fresh data with workers meets the goal', () => {
+    const s = (data: 'shared' | 'reset' | 'fresh', workers: number) => ({ suites: { api: { data, workers } } });
+    expect(ev('test-data', 'factory', s('fresh', 1)).goalMet).toBe(false);
+    expect(ev('test-data', 'factory', s('reset', 4)).goalMet).toBe(false);
+    expect(ev('test-data', 'factory', s('shared', 4)).goalMet).toBe(false);
+    expect(ev('test-data', 'factory', s('fresh', 4)).goalMet).toBe(true);
+  });
+
+  it('flaky: shared + sleeps is flaky; retries hide; fixing causes meets the goal', () => {
+    const a = ev('flaky', 'ten-nights');
+    expect(a.kind === 'suite' && a.result.metrics.flaky).toBeGreaterThan(0);
+    const b = ev('flaky', 'retries');
+    expect(b.kind === 'suite' && b.result.metrics.hiddenFlaky).toBeGreaterThan(0);
+    const f = (data: 'shared' | 'fresh', waits: 'sleep' | 'auto', retries: number) => ev('flaky', 'fix', { suites: { nightly: { data, waits, retries } } }).goalMet;
+    expect(f('shared', 'sleep', 2)).toBe(false);
+    expect(f('fresh', 'sleep', 2)).toBe(false);
+    expect(f('shared', 'auto', 0)).toBe(false);
+    expect(f('fresh', 'auto', 0)).toBe(true);
+    expect(f('fresh', 'auto', 2)).toBe(true);
+  });
+});
