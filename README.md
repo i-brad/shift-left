@@ -96,4 +96,4 @@ A new **kind** of scene needs: a pure simulation in `packages/sim`, an evaluator
 
 ## Status
 
-Modules 1–6 complete (29 lessons). See BUILD_PLAN.md for the rest.
+All 8 modules complete: 34 lessons, 8 exercises (02–09). BUILD_PLAN.md records how each was built.

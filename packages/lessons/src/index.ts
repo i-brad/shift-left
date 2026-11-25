@@ -13,6 +13,8 @@ import { assertingResponses, authnAuthz, httpForTesters, negativeTests } from '.
 import { fixtures, locators, traces, waiting } from './lessons/module-4';
 import { flaky, structure, testData } from './lessons/module-5';
 import { parallel, prChecks, reports, secrets } from './lessons/module-6';
+import { k6, maestro, owasp, pact } from './lessons/module-7';
+import { capstone } from './lessons/capstone';
 import { partitionsBoundaries } from './lessons/partitions-boundaries';
 import { stateTransitions } from './lessons/state-transitions';
 import type { Lesson } from './types';
@@ -47,7 +49,16 @@ export const lessons: Record<string, Lesson> = {
   [reports.id]: reports,
   [secrets.id]: secrets,
   [parallel.id]: parallel,
+  [maestro.id]: maestro,
+  [k6.id]: k6,
+  [owasp.id]: owasp,
+  [pact.id]: pact,
+  [capstone.id]: capstone,
 };
+
+export { capstone };
+
+export { maestro, k6, owasp, pact };
 
 export { prChecks, reports, secrets, parallel };
 

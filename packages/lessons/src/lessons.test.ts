@@ -112,8 +112,9 @@ describe('every built lesson', () => {
       it('has consistent steps, predictions, learn items and check', () => {
         expect(new Set(lesson.steps.map((s) => s.id)).size).toBe(lesson.steps.length);
         expect(new Set(lesson.steps.map((s) => s.rail)).size).toBe(lesson.steps.length);
+        // A lesson's main scene is its first; later steps may switch to another (e.g. request → board).
+        expect(lesson.steps[0]!.scene.kind).toBe(lesson.scene);
         for (const s of lesson.steps) {
-          expect(s.scene.kind).toBe(lesson.scene);
           if (s.scene.kind === 'board') expect(lesson.boards?.[s.scene.board], s.scene.board).toBeDefined();
           if (s.scene.kind === 'pipeline') expect(lesson.pipelines?.[s.scene.pipeline], s.scene.pipeline).toBeDefined();
           if (s.predict) expect(s.predict.options.map((o) => o.id)).toContain(s.predict.answer);
@@ -379,5 +380,26 @@ describe('Module 6 · CI/CD', () => {
     expect(p('reset', 4)).toBe(false);
     expect(p('shared', 4)).toBe(false);
     expect(p('fresh', 4)).toBe(true);
+  });
+});
+
+describe('Module 7 · Branches', () => {
+  const ev = (lessonId: string, stepId: string, o: Partial<Learner> = {}) => {
+    const lesson = lessons[lessonId]!;
+    return evaluateStep(stepOf(lesson, stepId), learner(o), lesson);
+  };
+  it('k6: 200 users break one server; the limit is 100; two servers are enough', () => {
+    const d = ev('k6', 'double');
+    expect(d.kind === 'load' && d.current).toMatchObject({ p95: 1080, passed: false, errorPct: 0 });
+    expect(ev('k6', 'limit', { load: { users: 200, servers: 1, marked: 200 } }).goalMet).toBe(false);
+    expect(ev('k6', 'limit', { load: { users: 100, servers: 1, marked: 100 } }).goalMet).toBe(true);
+    expect(ev('k6', 'scale', { load: { users: 10, servers: 1, marked: null } }).goalMet).toBe(false);
+    expect(ev('k6', 'scale', { load: { users: 10, servers: 4, marked: null } }).goalMet).toBe(false);
+    expect(ev('k6', 'scale', { load: { users: 10, servers: 2, marked: null } }).goalMet).toBe(true);
+  });
+  it('pact: only the contract check is fast enough and catches everything with unit tests', () => {
+    expect(ev('pact', 'contract', { pipes: { contracts: ['unit', 'e2e'] } }).goalMet).toBe(false);
+    expect(ev('pact', 'contract', { pipes: { contracts: ['contract'] } }).goalMet).toBe(false);
+    expect(ev('pact', 'contract', { pipes: { contracts: ['unit', 'contract'] } }).goalMet).toBe(true);
   });
 });

@@ -135,7 +135,8 @@ test('the team checklist is always visible', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Use it on your team' })).toBeVisible();
 });
 
-test('lessons not built yet show a placeholder', async ({ page }) => {
-  await page.goto('/learn/pact');
-  await expect(page.getByText('This lesson is planned but not built yet.')).toBeVisible();
+test('every lesson in the course is built', async ({ page }) => {
+  await page.goto('/learn/capstone');
+  await expect(page.getByText('This lesson is planned but not built yet.')).toHaveCount(0);
+  await expect(page.locator('[aria-label="Lessons built"]')).toHaveAttribute('aria-valuenow', '34');
 });

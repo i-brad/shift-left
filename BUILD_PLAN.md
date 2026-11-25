@@ -84,12 +84,12 @@ The checklist for finishing the course. Work top to bottom; tick a lesson only w
 ### Module 7 · Branches (optional)
 | | Lesson | Scene |
 | --- | --- | --- |
-| [ ] | Mobile with Maestro | page |
-| [ ] | Load testing with k6 | timing |
-| [ ] | OWASP for testers | request |
-| [ ] | Contract tests with Pact | request |
+| [x] | Mobile with Maestro | board |
+| [x] | Load testing with k6 | load (new) |
+| [x] | OWASP for testers | request → board |
+| [x] | Contract tests with Pact | request → pipeline |
 
 ### Module 8 · Capstone
 | | Lesson | Scene |
 | --- | --- | --- |
-| [ ] | Test strategy for a new feature | board |
+| [x] | Test strategy for a new feature | board (+ docs/strategy-template.md) |

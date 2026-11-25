@@ -60,15 +60,15 @@ export const course: CourseModule[] = [
   },
   {
     n: 7, title: 'Branches', color: '#ef8fa6', optional: true, lessons: [
-      { id: 'maestro', title: 'Mobile with Maestro', built: false },
-      { id: 'k6', title: 'Load testing with k6', built: false },
-      { id: 'owasp', title: 'OWASP for testers', built: false },
-      { id: 'pact', title: 'Contract tests with Pact', built: false },
+      { id: 'maestro', title: 'Mobile with Maestro', built: true },
+      { id: 'k6', title: 'Load testing with k6', built: true },
+      { id: 'owasp', title: 'OWASP for testers', built: true },
+      { id: 'pact', title: 'Contract tests with Pact', built: true },
     ],
   },
   {
     n: 8, title: 'Capstone', color: '#8a93b5', lessons: [
-      { id: 'capstone', title: 'Test strategy for a new feature', built: false },
+      { id: 'capstone', title: 'Test strategy for a new feature', built: true },
     ],
   },
 ];

@@ -10,8 +10,9 @@ import { BoardScene } from './BoardScene';
 import { CoverageScene } from './CoverageScene';
 import { PipelineScene } from './PipelineScene';
 import { RequestScene, statusLine, statusTone } from './RequestScene';
-import { ASSERTIONS, BODIES, DATA_STRATEGIES, LOCATOR_KINDS, PAGE_CHANGES, PAGE_ELEMENTS, PATHS, WAIT_STRATEGIES, type ApiRequest, type Assertion, type LocatorKind, type SuiteOptions, type WaitStrategy } from '@shift-left/sim';
+import { LOAD_STEPS, ASSERTIONS, BODIES, DATA_STRATEGIES, LOCATOR_KINDS, PAGE_CHANGES, PAGE_ELEMENTS, PATHS, WAIT_STRATEGIES, type ApiRequest, type Assertion, type LocatorKind, type SuiteOptions, type WaitStrategy } from '@shift-left/sim';
 import { PageScene } from './PageScene';
+import { LoadScene } from './LoadScene';
 import { SuiteScene } from './SuiteScene';
 import { TimingScene } from './TimingScene';
 
@@ -27,6 +28,7 @@ export function SceneView({ ev, scene, reducedMotion, hideResults }: { ev: StepE
   if (ev.kind === 'card' && scene.kind === 'card') return <CardScene evalState={ev} scene={scene} reducedMotion={reducedMotion} hideResults={hideResults} />;
   if (ev.kind === 'pipeline') return <PipelineScene evalState={ev} reducedMotion={reducedMotion} />;
   if (ev.kind === 'request' && scene.kind === 'request') return <RequestScene evalState={ev} rooms={!!scene.rooms} reducedMotion={reducedMotion} hideResults={hideResults} />;
+  if (ev.kind === 'load') return <LoadScene evalState={ev} reducedMotion={reducedMotion} hideResults={hideResults} />;
   if (ev.kind === 'page') return <PageScene evalState={ev} reducedMotion={reducedMotion} />;
   if (ev.kind === 'timing') return <TimingScene evalState={ev} reducedMotion={reducedMotion} hideResults={hideResults} />;
   if (ev.kind === 'suite') return <SuiteScene evalState={ev} reducedMotion={reducedMotion} hideResults={hideResults} />;
@@ -87,6 +89,16 @@ export function metricsFor(ev: StepEval, predicted: boolean): MetricSpec[] {
         { label: 'Requests sent', value: ev.history.length, tone: 'neutral' },
         { label: 'Codes seen', value: seen.length ? seen.join(' ') : '—', tone: 'neutral' },
         { label: 'Off-spec answers', value: predicted ? off : '?', tone: predicted && off > 0 ? 'bad' : 'neutral' },
+      ];
+    }
+    case 'load': {
+      const c = ev.current;
+      return [
+        { label: 'Users', value: ev.users, tone: 'neutral' },
+        { label: 'Servers', value: ev.servers, tone: 'neutral' },
+        { label: 'p95', value: predicted ? `${c.p95} ms` : '?', tone: predicted ? (c.p95 <= ev.thresholdMs ? 'good' : 'bad') : 'neutral' },
+        { label: 'Errors', value: predicted ? `${c.errorPct}%` : '?', tone: predicted && c.errorPct ? 'bad' : 'neutral' },
+        { label: 'Threshold', value: predicted ? (c.passed ? 'met' : 'missed') : '?', tone: predicted ? (c.passed ? 'good' : 'bad') : 'neutral' },
       ];
     }
     case 'page': {
@@ -158,6 +170,7 @@ export function legendFor(kind: StepEval['kind']): LegendItem[] {
   if (kind === 'boundaries')
     return [...base, { label: 'should be rejected', color: 'var(--sl-pink)' }, { label: 'should be accepted', color: 'var(--sl-sky)' }, { label: 'request', color: 'var(--sl-request)', round: true }];
   if (kind === 'pipeline') return [{ label: 'check on', color: 'var(--sl-sky)' }, { label: 'check off', color: '#fffaf1' }, { label: 'defect caught', color: 'var(--sl-sage)' }, { label: 'reached customers', color: 'var(--sl-rose)' }];
+  if (kind === 'load') return [{ label: 'meets threshold', color: 'var(--sl-sky)' }, { label: 'misses threshold', color: 'var(--sl-pink)' }, { label: 'threshold', color: 'var(--sl-lavender)' }];
   if (kind === 'page') return [{ label: 'found', color: 'var(--sl-sage)' }, { label: 'locator snapped', color: 'var(--sl-rose)' }, { label: 'no locator yet', color: '#fffaf1' }];
   if (kind === 'timing') return [{ label: 'Kudi responding', color: 'var(--sl-sky)' }, { label: 'test looked: pass', color: 'var(--sl-sage)' }, { label: 'test looked: fail', color: 'var(--sl-rose)' }];
   if (kind === 'suite') return [{ label: 'checks data', color: 'var(--sl-sage)' }, { label: 'changes data', color: 'var(--sl-lavender)' }, { label: 'failed', color: 'var(--sl-rose)' }, { label: 'passed on retry', color: 'var(--sl-butter)' }];
@@ -189,6 +202,8 @@ export function SceneControls(props: ControlsProps) {
       return <RequestControls {...props} />;
     case 'page':
       return <PageControls {...props} />;
+    case 'load':
+      return <LoadControls {...props} />;
     case 'timing':
       return <TimingControls {...props} />;
     case 'suite':
@@ -274,6 +289,30 @@ function PageControls({ ev, scene, learner, setLearner }: ControlsProps) {
           {structure.tests} tests use these locators. After these changes you would edit <b>{structure.places}</b> place{structure.places === 1 ? '' : 's'}.
         </p>
       )}
+    </div>
+  );
+}
+
+function LoadControls({ ev, setLearner, hideResults }: ControlsProps) {
+  if (ev.kind !== 'load') return null;
+  const set = (patch: Partial<{ users: number; servers: number; marked: number | null }>) => setLearner((l) => ({ ...l, load: { ...l.load, ...patch } }));
+  return (
+    <div className="timing-ctl">
+      <div className="switches" role="group" aria-label="Load">
+        {ev.learnerUsers && <Toggle label="Virtual users" options={LOAD_STEPS.map(String)} value={String(ev.users)} onChange={(v) => set({ users: Number(v) })} />}
+        {ev.learnerServers && <Toggle label="Servers" options={['1', '2', '4'] as const} value={String(ev.servers) as '1'} onChange={(v) => set({ servers: Number(v) })} />}
+        {ev.learnerUsers && (
+          <Button variant="primary" onClick={() => set({ marked: ev.users })}>
+            Mark {ev.users} users as the limit
+          </Button>
+        )}
+      </div>
+      <p id="probe-result" className="result" aria-live="polite">
+        {hideResults
+          ? 'Make your prediction first.'
+          : `${ev.users} users: p95 ${ev.current.p95} ms, ${ev.current.errorPct}% errors. ${ev.current.passed ? 'Meets' : 'Misses'} p95 < ${ev.thresholdMs} ms.`}
+        {ev.marked !== null && ev.learnerUsers ? ` You marked ${ev.marked} users as the limit.` : ''}
+      </p>
     </div>
   );
 }

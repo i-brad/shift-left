@@ -33,6 +33,10 @@ export type GoalCheck =
   | { kind: 'trace-frame'; frame: string }
   /** All 10 runs pass, without waiting more than `maxWaitSeconds` in total. */
   | { kind: 'timing-target'; maxWaitSeconds?: number }
+  /** Learner marked the most users that still meet the threshold. */
+  | { kind: 'load-limit' }
+  /** `users` meet the threshold using at most `maxServers`. */
+  | { kind: 'load-target'; users: number; maxServers: number }
   | { kind: 'suite-target'; suite: string; maxFalseFailures?: number; maxSeconds?: number; realBug?: boolean; noFlaky?: boolean; noHidden?: boolean };
 
 export type BoundaryScene = {
@@ -143,7 +147,16 @@ export type SuiteScene = {
   controls?: (keyof import('@shift-left/sim').SuiteOptions)[];
 };
 
-export type SceneState = BoundaryScene | FeeScene | CardScene | BoardScene | CoverageScene | PipelineScene | RequestScene | PageScene | TimingScene | SuiteScene;
+export type LoadScene = {
+  kind: 'load';
+  /** Virtual users. 'learner' = the dial, starting at 10. */
+  users: number | 'learner';
+  /** Kudi API servers (each handles ~100 users). 'learner' = the learner adds servers. */
+  servers: number | 'learner';
+  thresholdMs: number;
+};
+
+export type SceneState = LoadScene | BoundaryScene | FeeScene | CardScene | BoardScene | CoverageScene | PipelineScene | RequestScene | PageScene | TimingScene | SuiteScene;
 export type SceneKind = SceneState['kind'];
 
 export type Step = {

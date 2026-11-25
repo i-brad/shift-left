@@ -20,6 +20,9 @@ import {
   placesToFix,
   runTiming,
   runSuite,
+  runLoad,
+  LOAD_STEPS,
+  type LoadResult,
   STALE_BALANCE_TRACE,
   type LocatorChoices,
   type LocatorRun,
@@ -59,7 +62,7 @@ import {
   type Tier,
   type Transition,
 } from '@shift-left/sim';
-import type { BoardScene, BoundaryScene, CardScene, CoverageScene, FeeScene, GoalCheck, Lesson, PageScene, PipelineScene, RequestScene, Step, SuiteScene, TimingScene } from './types';
+import type { LoadScene, BoardScene, BoundaryScene, CardScene, CoverageScene, FeeScene, GoalCheck, Lesson, PageScene, PipelineScene, RequestScene, Step, SuiteScene, TimingScene } from './types';
 
 /** Everything the learner has done in the lesson. One shape for all scenes; each scene reads its part. */
 export type Learner = {
@@ -86,6 +89,7 @@ export type Learner = {
   timing: { latency: number; strategy: WaitStrategy; sleepMs: number };
   /** suiteId → options the learner changed. */
   suites: Record<string, Partial<SuiteOptions>>;
+  load: { users: number; servers: number; marked: number | null };
 };
 
 export const initialLearner = (): Learner => ({
@@ -109,6 +113,7 @@ export const initialLearner = (): Learner => ({
   traceFrame: null,
   timing: { latency: 800, strategy: 'sleep', sleepMs: 1000 },
   suites: {},
+  load: { users: 10, servers: 1, marked: null },
 });
 
 export type BoundaryEval = {
@@ -158,10 +163,14 @@ export type TimingEval = { kind: 'timing'; latency: number; strategy: WaitStrate
 
 export type SuiteEval = { kind: 'suite'; suiteId: string; def: SuiteDef; options: SuiteOptions; controls: (keyof SuiteOptions)[]; result: SuiteResult; escapedBugs: number; goalMet: boolean };
 
-export type StepEval = BoundaryEval | FeeEval | CardEval | BoardEval | CoverageEval | PipelineEval | RequestEval | PageEval | TimingEval | SuiteEval;
+export type LoadEval = { kind: 'load'; users: number; servers: number; thresholdMs: number; learnerUsers: boolean; learnerServers: boolean; current: LoadResult; sweep: LoadResult[]; limit: number; marked: number | null; escapedBugs: number; goalMet: boolean };
+
+export type StepEval = LoadEval | BoundaryEval | FeeEval | CardEval | BoardEval | CoverageEval | PipelineEval | RequestEval | PageEval | TimingEval | SuiteEval;
 
 export function evaluateStep(step: Step, learner: Learner, lesson?: Pick<Lesson, 'boards' | 'pipelines' | 'suites'>): StepEval {
   switch (step.scene.kind) {
+    case 'load':
+      return evalLoad(step, step.scene, learner);
     case 'page':
       return evalPage(step, step.scene, learner);
     case 'timing':
@@ -268,6 +277,28 @@ function evalRequest(step: Step, scene: RequestScene, learner: Learner): Request
   return { kind: 'request', req, current, history, assertions: learner.assertions, catching, escapedBugs: 0, goalMet };
 }
 
+/** The most users (from LOAD_STEPS) that still meet the threshold with this many servers; 0 if none. */
+export function loadLimit(servers: number, thresholdMs: number) {
+  return Math.max(0, ...LOAD_STEPS.filter((u) => runLoad({ users: u, capacity: 100 * servers, thresholdMs }).passed));
+}
+
+function evalLoad(step: Step, scene: LoadScene, learner: Learner): LoadEval {
+  const learnerUsers = scene.users === 'learner';
+  const learnerServers = scene.servers === 'learner';
+  const users = learnerUsers ? learner.load.users : (scene.users as number);
+  const servers = learnerServers ? learner.load.servers : (scene.servers as number);
+  const capacity = 100 * servers;
+  const current = runLoad({ users, capacity, thresholdMs: scene.thresholdMs });
+  const sweep = LOAD_STEPS.map((u) => runLoad({ users: u, capacity, thresholdMs: scene.thresholdMs }));
+  const limit = loadLimit(servers, scene.thresholdMs);
+  const check = step.goal?.check;
+  let goalMet = true;
+  if (check?.kind === 'load-limit') goalMet = learner.load.marked === limit;
+  else if (check?.kind === 'load-target') goalMet = servers <= check.maxServers && runLoad({ users: check.users, capacity, thresholdMs: scene.thresholdMs }).passed;
+  else if (step.goal) goalMet = checkGoal(step.goal.check, { allPass: current.passed });
+  return { kind: 'load', users, servers, thresholdMs: scene.thresholdMs, learnerUsers, learnerServers, current, sweep, limit, marked: learner.load.marked, escapedBugs: 0, goalMet };
+}
+
 function evalPage(step: Step, scene: PageScene, learner: Learner): PageEval {
   if (scene.mode === 'trace') {
     const goalMet = !step.goal || checkGoal(step.goal.check, { allPass: false, traceFrame: learner.traceFrame });
@@ -350,6 +381,9 @@ export function checkGoal(check: GoalCheck, f: GoalFacts): boolean {
       return f.traceFrame === check.frame;
     case 'timing-target':
       return !!f.timing && f.timing.failed === 0 && (check.maxWaitSeconds === undefined || f.timing.waitedSeconds <= check.maxWaitSeconds);
+    case 'load-limit':
+    case 'load-target':
+      return false;
     case 'suite-target': {
       if (!f.suite || f.suite.id !== check.suite) return false;
       const m = f.suite.m;
