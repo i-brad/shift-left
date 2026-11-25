@@ -17,7 +17,7 @@ const meta = JSON.parse(readFileSync(new URL(`../exercises/${name}/exercise.json
 const fixed = flags.includes('--fixed');
 const solution = flags.includes('--solution');
 console.log(`\n▶ ${meta.title}`);
-console.log(fixed ? '  Planted bug: OFF (--fixed). Your tests should all pass.\n' : `  Planted bug: ON (${meta.bug}). A good test suite has at least one failure.\n`);
+console.log(fixed ? '  Planted bug: OFF (--fixed). Your tests should all pass.\n' : `  Planted bug: ON (${meta.bug})${meta.env ? `, plus ${Object.entries(meta.env).map(([k, v]) => `${k}=${v}`).join(' ')}` : ''}. A good test suite has at least one failure.\n`);
 
 const env = { ...process.env, EXERCISE: name, ...(fixed ? { FIXED: '1' } : {}), ...(solution ? { SOLUTION: '1' } : {}) };
 const extra = flags.filter((f) => !['--fixed', '--solution'].includes(f));

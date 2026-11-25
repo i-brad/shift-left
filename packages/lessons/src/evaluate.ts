@@ -16,6 +16,20 @@ import {
   runBoard,
   runCoverage,
   runPipeline,
+  runLocators,
+  placesToFix,
+  runTiming,
+  runSuite,
+  STALE_BALANCE_TRACE,
+  type LocatorChoices,
+  type LocatorRun,
+  type PageChange,
+  type TraceFrame,
+  type TimingResult,
+  type WaitStrategy,
+  type SuiteDef,
+  type SuiteOptions,
+  type SuiteResult,
   exchange,
   bugShown,
   failingAssertions,
@@ -45,7 +59,7 @@ import {
   type Tier,
   type Transition,
 } from '@shift-left/sim';
-import type { BoardScene, BoundaryScene, CardScene, CoverageScene, FeeScene, GoalCheck, Lesson, PipelineScene, RequestScene, Step } from './types';
+import type { BoardScene, BoundaryScene, CardScene, CoverageScene, FeeScene, GoalCheck, Lesson, PageScene, PipelineScene, RequestScene, Step, SuiteScene, TimingScene } from './types';
 
 /** Everything the learner has done in the lesson. One shape for all scenes; each scene reads its part. */
 export type Learner = {
@@ -65,6 +79,13 @@ export type Learner = {
   req: ApiRequest | null;
   sent: ApiRequest[];
   assertions: Assertion[];
+  locators: LocatorChoices;
+  pageChanges: PageChange[];
+  pageObject: boolean;
+  traceFrame: string | null;
+  timing: { latency: number; strategy: WaitStrategy; sleepMs: number };
+  /** suiteId → options the learner changed. */
+  suites: Record<string, Partial<SuiteOptions>>;
 };
 
 export const initialLearner = (): Learner => ({
@@ -82,6 +103,12 @@ export const initialLearner = (): Learner => ({
   req: null,
   sent: [],
   assertions: ['status'],
+  locators: {},
+  pageChanges: [],
+  pageObject: false,
+  traceFrame: null,
+  timing: { latency: 800, strategy: 'sleep', sleepMs: 1000 },
+  suites: {},
 });
 
 export type BoundaryEval = {
@@ -123,10 +150,24 @@ export type PipelineEval = { kind: 'pipeline'; pipelineId: string; def: Pipeline
 
 export type RequestEval = { kind: 'request'; req: ApiRequest; current: Exchange; history: Exchange[]; assertions: Assertion[]; catching: Assertion[]; escapedBugs: number; goalMet: boolean };
 
-export type StepEval = BoundaryEval | FeeEval | CardEval | BoardEval | CoverageEval | PipelineEval | RequestEval;
+export type PageEval =
+  | { kind: 'page'; mode: 'locators'; changes: PageChange[]; learnerChanges: boolean; choices: LocatorChoices; run: LocatorRun; structure?: { tests: number; pageObject: boolean; learnerPO: boolean; places: number }; escapedBugs: number; goalMet: boolean }
+  | { kind: 'page'; mode: 'trace'; frames: TraceFrame[]; frame: string | null; escapedBugs: number; goalMet: boolean };
 
-export function evaluateStep(step: Step, learner: Learner, lesson?: Pick<Lesson, 'boards' | 'pipelines'>): StepEval {
+export type TimingEval = { kind: 'timing'; latency: number; strategy: WaitStrategy; sleepMs: number; learnerLatency: boolean; learnerStrategy: boolean; result: TimingResult; escapedBugs: number; goalMet: boolean };
+
+export type SuiteEval = { kind: 'suite'; suiteId: string; def: SuiteDef; options: SuiteOptions; controls: (keyof SuiteOptions)[]; result: SuiteResult; escapedBugs: number; goalMet: boolean };
+
+export type StepEval = BoundaryEval | FeeEval | CardEval | BoardEval | CoverageEval | PipelineEval | RequestEval | PageEval | TimingEval | SuiteEval;
+
+export function evaluateStep(step: Step, learner: Learner, lesson?: Pick<Lesson, 'boards' | 'pipelines' | 'suites'>): StepEval {
   switch (step.scene.kind) {
+    case 'page':
+      return evalPage(step, step.scene, learner);
+    case 'timing':
+      return evalTiming(step, step.scene, learner);
+    case 'suite':
+      return evalSuite(step, step.scene, learner, lesson);
     case 'pipeline':
       return evalPipeline(step, step.scene, learner, lesson);
     case 'request':
@@ -227,7 +268,51 @@ function evalRequest(step: Step, scene: RequestScene, learner: Learner): Request
   return { kind: 'request', req, current, history, assertions: learner.assertions, catching, escapedBugs: 0, goalMet };
 }
 
-type GoalFacts = { allPass: boolean; probe?: ProbeResult | null; feeYouFails?: boolean; cardWrong?: Set<string>; boardDone?: Record<string, boolean>; covFails?: boolean; pipeline?: { id: string; m: PipelineRun['metrics'] }; request?: { statuses: Set<number>; found: Set<string>; catches: boolean } };
+function evalPage(step: Step, scene: PageScene, learner: Learner): PageEval {
+  if (scene.mode === 'trace') {
+    const goalMet = !step.goal || checkGoal(step.goal.check, { allPass: false, traceFrame: learner.traceFrame });
+    return { kind: 'page', mode: 'trace', frames: STALE_BALANCE_TRACE, frame: learner.traceFrame, escapedBugs: 0, goalMet };
+  }
+  const learnerChanges = scene.changes === 'learner';
+  const changes = learnerChanges ? learner.pageChanges : [...((scene.changes as readonly PageChange[] | undefined) ?? [])];
+  const choices = learner.locators;
+  const result = runLocators(choices, changes);
+  let structure: Extract<PageEval, { mode: 'locators' }>['structure'];
+  if (scene.structure) {
+    const learnerPO = scene.structure.pageObject === 'learner';
+    const pageObject = learnerPO ? learner.pageObject : (scene.structure.pageObject as boolean);
+    structure = { tests: scene.structure.tests, pageObject, learnerPO, places: placesToFix(choices, changes, scene.structure.tests, pageObject) };
+  }
+  const goalMet = !step.goal || checkGoal(step.goal.check, { allPass: result.metrics.broken === 0, locators: choices, places: structure?.places });
+  return { kind: 'page', mode: 'locators', changes, learnerChanges, choices, run: result, structure, escapedBugs: 0, goalMet };
+}
+
+function evalTiming(step: Step, scene: TimingScene, learner: Learner): TimingEval {
+  const learnerLatency = scene.latency === 'learner';
+  const learnerStrategy = scene.strategy === 'learner';
+  const latency = learnerLatency ? learner.timing.latency : (scene.latency as number);
+  const strategy = learnerStrategy ? learner.timing.strategy : (scene.strategy as WaitStrategy);
+  const sleepMs = learnerStrategy ? learner.timing.sleepMs : (scene.sleepMs ?? 1000);
+  const result = runTiming({ latencyMs: latency, strategy, sleepMs });
+  const goalMet = !step.goal || checkGoal(step.goal.check, { allPass: result.metrics.failed === 0, timing: result.metrics });
+  return { kind: 'timing', latency, strategy, sleepMs, learnerLatency, learnerStrategy, result, escapedBugs: 0, goalMet };
+}
+
+export const DEFAULT_SUITE_OPTIONS: SuiteOptions = { data: 'shared', order: 'written', workers: 1, waits: 'auto', retries: 0, runs: 1 };
+
+function evalSuite(step: Step, scene: SuiteScene, learner: Learner, lesson?: Pick<Lesson, 'suites'>): SuiteEval {
+  const def = lesson?.suites?.[scene.suite];
+  if (!def) throw new Error(`Unknown suite "${scene.suite}"`);
+  const controls = scene.controls ?? [];
+  const mine = learner.suites[scene.suite] ?? {};
+  const options: SuiteOptions = { ...DEFAULT_SUITE_OPTIONS, ...scene.options };
+  for (const k of controls) if (mine[k] !== undefined) (options as Record<string, unknown>)[k] = mine[k];
+  const result = runSuite(def, options);
+  const goalMet = !step.goal || checkGoal(step.goal.check, { allPass: result.metrics.failing === 0, suite: { id: scene.suite, m: result.metrics } });
+  return { kind: 'suite', suiteId: scene.suite, def, options, controls, result, escapedBugs: result.metrics.realBugCaught ? 0 : def.tests.some((t) => t.realBug) ? 1 : 0, goalMet };
+}
+
+type GoalFacts = { allPass: boolean; probe?: ProbeResult | null; feeYouFails?: boolean; cardWrong?: Set<string>; boardDone?: Record<string, boolean>; covFails?: boolean; pipeline?: { id: string; m: PipelineRun['metrics'] }; request?: { statuses: Set<number>; found: Set<string>; catches: boolean }; locators?: LocatorChoices; places?: number; traceFrame?: string | null; timing?: TimingResult['metrics']; suite?: { id: string; m: SuiteResult['metrics'] } };
 
 export function checkGoal(check: GoalCheck, f: GoalFacts): boolean {
   switch (check.kind) {
@@ -253,6 +338,28 @@ export function checkGoal(check: GoalCheck, f: GoalFacts): boolean {
       if (!f.pipeline || f.pipeline.id !== check.pipeline) return false;
       const m = f.pipeline.m;
       return (check.maxEscaped === undefined || m.escaped <= check.maxEscaped) && (check.maxCost === undefined || m.cost <= check.maxCost) && (check.maxSeconds === undefined || m.seconds <= check.maxSeconds);
+    }
+    case 'locators-hold': {
+      if (!f.locators) return false;
+      const r = runLocators(f.locators, check.changes);
+      return r.metrics.chosen === r.metrics.elements && r.metrics.broken === 0;
+    }
+    case 'places-max':
+      return f.places !== undefined && f.places <= check.max;
+    case 'trace-frame':
+      return f.traceFrame === check.frame;
+    case 'timing-target':
+      return !!f.timing && f.timing.failed === 0 && (check.maxWaitSeconds === undefined || f.timing.waitedSeconds <= check.maxWaitSeconds);
+    case 'suite-target': {
+      if (!f.suite || f.suite.id !== check.suite) return false;
+      const m = f.suite.m;
+      return (
+        (check.maxFalseFailures === undefined || m.falseFailures <= check.maxFalseFailures) &&
+        (check.maxSeconds === undefined || m.seconds <= check.maxSeconds) &&
+        (!check.realBug || m.realBugCaught) &&
+        (!check.noFlaky || m.flaky === 0) &&
+        (!check.noHidden || m.hiddenFlaky === 0)
+      );
     }
   }
 }

@@ -40,6 +40,7 @@ exercises/
   04-state-transitions/   State transitions (card)
   05-coverage/            Statement and branch coverage (Vitest + coverage report)
   06-api/                 Module 3: status, shape, authorisation, negative tests
+  07-web/                 Module 4: locators, waits, fixtures, traces (starts the web app too)
 scripts/
   exercise.mjs     Runs an exercise against a fresh Kudi with its bug on or off
 ```
@@ -62,6 +63,9 @@ KUDI_BUGS=limit-exclusive pnpm kudi
 | `history-amount-string` | Asserting on responses | `GET /api/transfers` returns amounts as strings |
 | `transfer-idor` | Authn vs authz | Anyone signed in can read any transfer by id |
 | `bad-json-500` | Negative tests | Broken JSON crashes `POST /api/transfers` with a 500 |
+| `balance-stale` | Debugging with traces | `GET /api/me` keeps the balance from login |
+
+Two more switches for Module 4: `KUDI_REDESIGN=1` serves the redesigned Send form, and `KUDI_LATENCY=<ms>` slows every API response.
 | `cashback-basic-undefined` | Statement and branch coverage | `rate` is never initialised, so Basic customers get NaN cashback |
 
 The list lives in `apps/kudi/src/bugs.ts`. Exercises turn their bug on for you.
@@ -89,4 +93,4 @@ A new **kind** of scene needs: a pure simulation in `packages/sim`, an evaluator
 
 ## Status
 
-Modules 1–3 complete (18 lessons). See BUILD_PLAN.md for the rest.
+Modules 1–4 complete (22 lessons). See BUILD_PLAN.md for the rest.

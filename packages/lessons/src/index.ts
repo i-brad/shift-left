@@ -10,6 +10,7 @@ import { exploratory } from './lessons/exploratory';
 import { errorsDefectsFailures, testLevels, whyWeTest } from './lessons/module-1a';
 import { confirmationRegression, planningReporting, reviewsStatic, riskBased } from './lessons/module-1b';
 import { assertingResponses, authnAuthz, httpForTesters, negativeTests } from './lessons/module-3';
+import { fixtures, locators, traces, waiting } from './lessons/module-4';
 import { partitionsBoundaries } from './lessons/partitions-boundaries';
 import { stateTransitions } from './lessons/state-transitions';
 import type { Lesson } from './types';
@@ -33,7 +34,13 @@ export const lessons: Record<string, Lesson> = {
   [assertingResponses.id]: assertingResponses,
   [authnAuthz.id]: authnAuthz,
   [negativeTests.id]: negativeTests,
+  [locators.id]: locators,
+  [waiting.id]: waiting,
+  [fixtures.id]: fixtures,
+  [traces.id]: traces,
 };
+
+export { locators, waiting, fixtures, traces };
 
 export { httpForTesters, assertingResponses, authnAuthz, negativeTests };
 

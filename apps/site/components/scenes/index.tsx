@@ -10,7 +10,10 @@ import { BoardScene } from './BoardScene';
 import { CoverageScene } from './CoverageScene';
 import { PipelineScene } from './PipelineScene';
 import { RequestScene, statusLine, statusTone } from './RequestScene';
-import { ASSERTIONS, BODIES, PATHS, type ApiRequest, type Assertion } from '@shift-left/sim';
+import { ASSERTIONS, BODIES, DATA_STRATEGIES, LOCATOR_KINDS, PAGE_CHANGES, PAGE_ELEMENTS, PATHS, WAIT_STRATEGIES, type ApiRequest, type Assertion, type LocatorKind, type SuiteOptions, type WaitStrategy } from '@shift-left/sim';
+import { PageScene } from './PageScene';
+import { SuiteScene } from './SuiteScene';
+import { TimingScene } from './TimingScene';
 
 const naira = (v: number) => `${v < 0 ? '-' : ''}₦${Math.abs(v).toLocaleString('en-NG')}`;
 
@@ -24,6 +27,9 @@ export function SceneView({ ev, scene, reducedMotion, hideResults }: { ev: StepE
   if (ev.kind === 'card' && scene.kind === 'card') return <CardScene evalState={ev} scene={scene} reducedMotion={reducedMotion} hideResults={hideResults} />;
   if (ev.kind === 'pipeline') return <PipelineScene evalState={ev} reducedMotion={reducedMotion} />;
   if (ev.kind === 'request' && scene.kind === 'request') return <RequestScene evalState={ev} rooms={!!scene.rooms} reducedMotion={reducedMotion} hideResults={hideResults} />;
+  if (ev.kind === 'page') return <PageScene evalState={ev} reducedMotion={reducedMotion} />;
+  if (ev.kind === 'timing') return <TimingScene evalState={ev} reducedMotion={reducedMotion} hideResults={hideResults} />;
+  if (ev.kind === 'suite') return <SuiteScene evalState={ev} reducedMotion={reducedMotion} hideResults={hideResults} />;
   if (ev.kind === 'board') return <BoardScene evalState={ev} reducedMotion={reducedMotion} />;
   if (ev.kind === 'coverage' && scene.kind === 'coverage') return <CoverageScene evalState={ev} scene={scene} reducedMotion={reducedMotion} />;
   return null;
@@ -83,6 +89,43 @@ export function metricsFor(ev: StepEval, predicted: boolean): MetricSpec[] {
         { label: 'Off-spec answers', value: predicted ? off : '?', tone: predicted && off > 0 ? 'bad' : 'neutral' },
       ];
     }
+    case 'page': {
+      if (ev.mode === 'trace') {
+        const i = ev.frames.findIndex((f) => f.id === ev.frame);
+        return [
+          { label: 'Frames', value: ev.frames.length, tone: 'neutral' },
+          { label: 'Selected', value: i >= 0 ? i + 1 : '—', tone: 'neutral' },
+          { label: 'Failed at', value: ev.frames.findIndex((f) => f.failed) + 1, tone: 'bad' },
+        ];
+      }
+      const m = ev.run.metrics;
+      return [
+        { label: 'Found', value: `${m.holding} / ${m.elements}`, tone: m.holding === m.elements ? 'good' : 'neutral' },
+        { label: 'Snapped', value: m.broken, tone: m.broken > 0 ? 'bad' : 'neutral' },
+        { label: 'Changes', value: ev.changes.length ? ev.changes.join(' + ') : 'none', tone: 'neutral' },
+        ...(ev.structure ? [{ label: 'Places to fix', value: ev.structure.places, tone: (ev.structure.places > 3 ? 'bad' : 'neutral') as Tone }] : []),
+      ];
+    }
+    case 'timing': {
+      const m = ev.result.metrics;
+      return [
+        { label: 'Runs passed', value: predicted ? `${m.passed} / ${m.runs}` : '?', tone: predicted ? (m.passed === m.runs ? 'good' : 'bad') : 'neutral' },
+        { label: 'Flaky', value: predicted ? (m.flaky ? 'yes' : 'no') : '?', tone: predicted && m.flaky ? 'bad' : 'neutral' },
+        { label: 'Time waited', value: `${m.waitedSeconds} s`, tone: 'neutral' },
+        { label: 'Time wasted', value: `${m.wastedSeconds} s`, tone: m.wastedSeconds > 5 ? 'bad' : 'neutral' },
+      ];
+    }
+    case 'suite': {
+      const m = ev.result.metrics;
+      const multi = ev.options.runs > 1;
+      return [
+        { label: 'Failing', value: predicted ? `${m.failing} / ${m.tests}` : '?', tone: predicted && m.failing ? 'bad' : 'neutral' },
+        { label: 'False failures', value: predicted ? m.falseFailures : '?', tone: predicted ? (m.falseFailures ? 'bad' : 'good') : 'neutral' },
+        ...(multi ? [{ label: 'Flaky', value: predicted ? m.flaky : '?', tone: (predicted && m.flaky ? 'bad' : 'neutral') as Tone }, { label: 'Hidden by retries', value: predicted ? m.hiddenFlaky : '?', tone: (predicted && m.hiddenFlaky ? 'bad' : 'neutral') as Tone }] : []),
+        { label: 'Suite time', value: `${m.seconds} s`, tone: 'neutral' },
+        escaped,
+      ];
+    }
     case 'coverage': {
       const m = ev.run.metrics;
       return [
@@ -115,6 +158,9 @@ export function legendFor(kind: StepEval['kind']): LegendItem[] {
   if (kind === 'boundaries')
     return [...base, { label: 'should be rejected', color: 'var(--sl-pink)' }, { label: 'should be accepted', color: 'var(--sl-sky)' }, { label: 'request', color: 'var(--sl-request)', round: true }];
   if (kind === 'pipeline') return [{ label: 'check on', color: 'var(--sl-sky)' }, { label: 'check off', color: '#fffaf1' }, { label: 'defect caught', color: 'var(--sl-sage)' }, { label: 'reached customers', color: 'var(--sl-rose)' }];
+  if (kind === 'page') return [{ label: 'found', color: 'var(--sl-sage)' }, { label: 'locator snapped', color: 'var(--sl-rose)' }, { label: 'no locator yet', color: '#fffaf1' }];
+  if (kind === 'timing') return [{ label: 'Kudi responding', color: 'var(--sl-sky)' }, { label: 'test looked: pass', color: 'var(--sl-sage)' }, { label: 'test looked: fail', color: 'var(--sl-rose)' }];
+  if (kind === 'suite') return [{ label: 'checks data', color: 'var(--sl-sage)' }, { label: 'changes data', color: 'var(--sl-lavender)' }, { label: 'failed', color: 'var(--sl-rose)' }, { label: 'passed on retry', color: 'var(--sl-butter)' }];
   if (kind === 'request') return [{ label: 'your request', color: 'var(--sl-lavender)' }, { label: '2xx success', color: 'var(--sl-sage)' }, { label: '4xx refused', color: 'var(--sl-butter)' }, { label: '5xx / off-spec', color: 'var(--sl-rose)' }];
   if (kind === 'board') return [{ label: 'picked', color: 'var(--sl-lavender)' }, { label: 'right', color: 'var(--sl-sage)' }, { label: 'wrong', color: 'var(--sl-rose)' }, { label: 'missed', color: 'var(--sl-pink)' }];
   if (kind === 'coverage') return [{ label: 'line ran', color: 'var(--sl-sage)' }, { label: 'decision ran', color: 'var(--sl-butter)' }, { label: 'never ran', color: '#fffaf1' }, { label: 'wrong result', color: 'var(--sl-rose)' }];
@@ -141,7 +187,159 @@ export function SceneControls(props: ControlsProps) {
       return <PipelineControls {...props} />;
     case 'request':
       return <RequestControls {...props} />;
+    case 'page':
+      return <PageControls {...props} />;
+    case 'timing':
+      return <TimingControls {...props} />;
+    case 'suite':
+      return <SuiteControls {...props} />;
   }
+}
+
+function PageControls({ ev, learner, setLearner }: ControlsProps) {
+  if (ev.kind !== 'page') return null;
+  if (ev.mode === 'trace') {
+    const f = ev.frames.find((x) => x.id === ev.frame);
+    return (
+      <div className="trace-ctl">
+        <div className="switches" role="group" aria-label="Trace frames">
+          {ev.frames.map((x, i) => (
+            <button key={x.id} type="button" className="opt" aria-pressed={x.id === ev.frame} onClick={() => setLearner((l) => ({ ...l, traceFrame: x.id }))}>
+              {i + 1}. {x.action}
+            </button>
+          ))}
+        </div>
+        <div id="probe-result" className="req-panes" aria-live="polite">
+          {f ? (
+            <>
+              <div>
+                <p className="pane-title">Page after this step</p>
+                <pre className="json">{f.page.screen === 'login' ? 'Login screen' : `Balance: ${f.page.balance}${f.page.status ? `\n${f.page.status}` : ''}`}{f.failed ? '\n\n✗ Expected ₦595,000, received ₦600,000' : ''}</pre>
+              </div>
+              <div>
+                <p className="pane-title">Network</p>
+                <pre className="json">{f.network.length ? f.network.map((n) => `${n.method} ${n.path} → ${n.status}\n  ${n.body}`).join('\n') : '(no requests)'}</pre>
+              </div>
+            </>
+          ) : (
+            <p className="result">Pick a frame to see the page and the network calls at that moment.</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+  const { run, learnerChanges, changes, structure } = ev;
+  const res = new Map(run.results.map((r) => [r.id, r]));
+  const toggleChange = (c: (typeof PAGE_CHANGES)[number]['id']) =>
+    setLearner((l) => ({ ...l, pageChanges: l.pageChanges.includes(c) ? l.pageChanges.filter((x) => x !== c) : [...l.pageChanges, c] }));
+  return (
+    <div className="loc-ctl">
+      {learnerChanges && (
+        <div className="switches" role="group" aria-label="Changes">
+          {PAGE_CHANGES.map((c) => (
+            <button key={c.id} type="button" className="opt" aria-pressed={changes.includes(c.id)} onClick={() => toggleChange(c.id)}>
+              {changes.includes(c.id) ? '✓ ' : ''}
+              {c.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {structure?.learnerPO && (
+        <div className="switch">
+          <span>Locators live in</span>
+          <Toggle label="Where locators live" options={['each test', 'a page object'] as const} value={learner.pageObject ? 'a page object' : 'each test'} onChange={(v) => setLearner((l) => ({ ...l, pageObject: v === 'a page object' }))} />
+        </div>
+      )}
+      <ul id="probe-result" className="loc-rows" aria-live="polite">
+        {PAGE_ELEMENTS.map((el) => {
+          const r = res.get(el.id)!;
+          const kinds = LOCATOR_KINDS.filter((k) => el.options[k.id]);
+          return (
+            <li key={el.id} data-state={!r.code ? 'none' : r.holds ? 'found' : 'lost'}>
+              <span className="item-label">{el.label}</span>
+              <Toggle label={`Locator: ${el.label}`} options={kinds.map((k) => k.label)} value={LOCATOR_KINDS.find((k) => k.id === r.kind)?.label ?? ''} onChange={(v) => setLearner((l) => ({ ...l, locators: { ...l.locators, [el.id]: LOCATOR_KINDS.find((k) => k.label === v)!.id as LocatorKind } }))} />
+              {r.code && (
+                <span className="loc-code">
+                  <code>{`page.${r.code}`}</code> <Chip tone={r.holds ? 'good' : 'bad'}>{r.holds ? 'found' : 'not found'}</Chip>
+                  {r.why && <span className="why">{r.why}</span>}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {structure && (
+        <p className="result">
+          {structure.tests} tests use these locators. After these changes you would edit <b>{structure.places}</b> place{structure.places === 1 ? '' : 's'}.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function TimingControls({ ev, setLearner, hideResults }: ControlsProps) {
+  if (ev.kind !== 'timing') return null;
+  const set = (patch: Partial<{ latency: number; strategy: WaitStrategy; sleepMs: number }>) => setLearner((l) => ({ ...l, timing: { ...l.timing, ...patch } }));
+  const code = WAIT_STRATEGIES.find((w) => w.id === ev.strategy)!.code.replace('SLEEP', String(ev.sleepMs));
+  const m = ev.result.metrics;
+  return (
+    <div className="timing-ctl">
+      <div className="switches" role="group" aria-label="Waiting">
+        {ev.learnerStrategy && <Toggle label="Strategy" options={WAIT_STRATEGIES.map((w) => w.label)} value={WAIT_STRATEGIES.find((w) => w.id === ev.strategy)!.label} onChange={(v) => set({ strategy: WAIT_STRATEGIES.find((w) => w.label === v)!.id })} />}
+        {ev.learnerStrategy && ev.strategy === 'sleep' && <Toggle label="Sleep" options={['0.5 s', '1 s', '2 s', '3 s'] as const} value={`${ev.sleepMs / 1000} s` as '1 s'} onChange={(v) => set({ sleepMs: parseFloat(v) * 1000 })} />}
+        {ev.learnerLatency && <Toggle label="Typical latency" options={['200 ms', '800 ms', '1500 ms', '2500 ms'] as const} value={`${ev.latency} ms` as '800 ms'} onChange={(v) => set({ latency: parseInt(v, 10) })} />}
+      </div>
+      <pre className="json">{code}</pre>
+      <p id="probe-result" className="result" aria-live="polite">
+        {hideResults ? 'Make your prediction first.' : `${m.passed} of ${m.runs} runs pass${m.flaky ? ' (flaky)' : ''}. Waited ${m.waitedSeconds} s, ${m.wastedSeconds} s of it after Kudi had already answered.`}
+      </p>
+    </div>
+  );
+}
+
+const ORDER_LABELS = { written: 'As written', reversed: 'Reversed', shuffled: 'Shuffled' } as const;
+const WAITS_LABELS = { sleep: 'Sleeps', auto: 'Auto-wait' } as const;
+
+function SuiteControls({ ev, setLearner, hideResults }: ControlsProps) {
+  if (ev.kind !== 'suite') return null;
+  const { controls, options, result, suiteId } = ev;
+  const set = (patch: Partial<SuiteOptions>) => setLearner((l) => ({ ...l, suites: { ...l.suites, [suiteId]: { ...(l.suites[suiteId] ?? {}), ...patch } } }));
+  const has = (k: keyof SuiteOptions) => controls.includes(k);
+  const byId = new Map(result.last.outcomes.map((o) => [o.id, o]));
+  return (
+    <div className="suite-ctl">
+      {controls.length > 0 && (
+        <div className="switches" role="group" aria-label="Suite settings">
+          {has('data') && <Toggle label="Test data" options={DATA_STRATEGIES.map((d) => d.label)} value={DATA_STRATEGIES.find((d) => d.id === options.data)!.label} onChange={(v) => set({ data: DATA_STRATEGIES.find((d) => d.label === v)!.id })} />}
+          {has('order') && <Toggle label="Order" options={Object.values(ORDER_LABELS)} value={ORDER_LABELS[options.order]} onChange={(v) => set({ order: (Object.keys(ORDER_LABELS) as (keyof typeof ORDER_LABELS)[]).find((k) => ORDER_LABELS[k] === v)! })} />}
+          {has('workers') && <Toggle label="Workers" options={['1', '2', '4'] as const} value={String(options.workers) as '1'} onChange={(v) => set({ workers: Number(v) })} />}
+          {has('waits') && <Toggle label="Waits" options={Object.values(WAITS_LABELS)} value={WAITS_LABELS[options.waits]} onChange={(v) => set({ waits: v === 'Sleeps' ? 'sleep' : 'auto' })} />}
+          {has('retries') && <Toggle label="Retries" options={['0', '1', '2'] as const} value={String(options.retries) as '0'} onChange={(v) => set({ retries: Number(v) })} />}
+        </div>
+      )}
+      <ul id="probe-result" className="cov-results" aria-live="polite">
+        {ev.def.tests.map((t) => {
+          const o = byId.get(t.id)!;
+          const p = result.perTest.find((x) => x.id === t.id)!;
+          return (
+            <li key={t.id}>
+              {t.label} {t.writes ? <span className="why">(changes data)</span> : null}{' '}
+              {hideResults ? (
+                <Chip tone="neutral">?</Chip>
+              ) : options.runs > 1 ? (
+                <Chip tone={p.verdict === 'stable-pass' ? 'good' : p.verdict === 'hidden-flaky' ? 'neutral' : 'bad'}>
+                  {p.verdict === 'stable-pass' ? `passed ${options.runs}/${options.runs}` : p.verdict === 'stable-fail' ? `failed ${p.red}/${options.runs}` : p.verdict === 'flaky' ? `flaky: failed ${p.red}/${options.runs}` : `retried ${p.retried}× (hidden)`}
+                </Chip>
+              ) : (
+                <Chip tone={o.status === 'passed' ? 'good' : o.status === 'flaky' ? 'neutral' : 'bad'}>{o.status === 'flaky' ? 'passed on retry' : o.status}</Chip>
+              )}
+              {!hideResults && o.cause && <span className="why"> {o.cause === 'data' ? 'another test changed its data' : o.cause === 'timing' ? 'slept too short' : 'Kudi is wrong (real bug)'}</span>}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 }
 
 const AUTHS = [

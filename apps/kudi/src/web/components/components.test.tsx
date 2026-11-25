@@ -96,3 +96,15 @@ describe('CardPanel', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent("You can't freeze a active card");
   });
 });
+
+describe('TransferForm redesign', () => {
+  it('keeps the labels, roles and test id, and changes the rest', () => {
+    const { container } = render(<TransferForm onSend={async () => ({})} redesign />);
+    expect(screen.getByLabelText('Recipient email')).toHaveAttribute('id', 'recipient-input');
+    expect(screen.getByRole('button', { name: /send/i })).toHaveTextContent('Send money');
+    expect(screen.getByTestId('send-button')).toBeInTheDocument();
+    expect(container.querySelector('.transfer')).toBeNull();
+    const labels = [...container.querySelectorAll('label')].map((l) => l.textContent);
+    expect(labels.indexOf('Amount')).toBeLessThan(labels.indexOf('Recipient email'));
+  });
+});

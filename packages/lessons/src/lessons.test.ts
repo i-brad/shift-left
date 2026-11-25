@@ -269,3 +269,48 @@ describe('Module 3 · API lessons', () => {
     expect(evaluateStep(s, learner({ sent: [R('POST', '/api/transfers', 'ada', 'malformed')] })).goalMet).toBe(true);
   });
 });
+
+describe('Module 4 · Web automation', () => {
+  const ev = (lessonId: string, stepId: string, o: Partial<Learner> = {}) => {
+    const lesson = lessons[lessonId]!;
+    return evaluateStep(stepOf(lesson, stepId), learner(o), lesson);
+  };
+
+  it('locators: only user-facing choices meet the goal', () => {
+    expect(ev('locators', 'choose', { locators: { recipient: 'xpath', amount: 'label', send: 'role', balance: 'testid' } }).goalMet).toBe(false);
+    expect(ev('locators', 'choose', { locators: { recipient: 'label', amount: 'label', send: 'role', balance: 'text' } }).goalMet).toBe(false);
+    expect(ev('locators', 'choose', { locators: { recipient: 'label', amount: 'role', send: 'testid', balance: 'testid' } }).goalMet).toBe(true);
+  });
+
+  it('waiting: 6 of 10 pass with a 1 s sleep', () => {
+    const e = ev('waiting', 'sleep');
+    expect(e.kind === 'timing' && e.result.metrics.passed).toBe(6);
+  });
+
+  it('waiting: only auto-wait meets the goal at 800 ms', () => {
+    expect(ev('waiting', 'auto', { timing: { latency: 800, strategy: 'sleep', sleepMs: 3000 } }).goalMet).toBe(false);
+    expect(ev('waiting', 'auto', { timing: { latency: 100, strategy: 'sleep', sleepMs: 300 } }).goalMet).toBe(false);
+    expect(ev('waiting', 'auto', { timing: { latency: 800, strategy: 'auto', sleepMs: 0 } }).goalMet).toBe(true);
+  });
+
+  it('fixtures: written order is green, reversed fails three', () => {
+    const g = ev('fixtures', 'green');
+    const r = ev('fixtures', 'order');
+    expect(g.kind === 'suite' && g.result.metrics.failing).toBe(0);
+    expect(r.kind === 'suite' && r.result.metrics.falseFailures).toBe(3);
+  });
+
+  it('fixtures: reset fixes serial; only fresh data fixes parallel', () => {
+    const s = (data: 'shared' | 'reset' | 'fresh') => ({ suites: { web: { data } } });
+    expect(ev('fixtures', 'reset', s('shared')).goalMet).toBe(false);
+    expect(ev('fixtures', 'reset', s('reset')).goalMet).toBe(true);
+    expect(ev('fixtures', 'parallel', s('shared')).goalMet).toBe(false);
+    expect(ev('fixtures', 'parallel', s('reset')).goalMet).toBe(false);
+    expect(ev('fixtures', 'parallel', s('fresh')).goalMet).toBe(true);
+  });
+
+  it('traces: the culprit is the refresh frame', () => {
+    expect(ev('traces', 'scrub', { traceFrame: 'send' }).goalMet).toBe(false);
+    expect(ev('traces', 'scrub', { traceFrame: 'refresh' }).goalMet).toBe(true);
+  });
+});

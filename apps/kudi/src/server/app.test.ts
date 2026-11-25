@@ -207,3 +207,23 @@ describe('Module 3 API rules', () => {
     expect((await raw(bugsFrom(['bad-json-500']))).status).toBe(500);
   });
 });
+
+describe('Module 4 switches', () => {
+  it('balance-stale: /me keeps the login balance after a transfer', async () => {
+    const s = setup(bugsFrom(['balance-stale']));
+    await s.loginAsAda();
+    const sent = await s.call('POST', '/transfers', { to: 'tunde@kudi.test', amount: 5000 });
+    expect(sent.json.balance).toBe(595_000);
+    expect((await s.call('GET', '/me')).json.balance).toBe(600_000);
+  });
+
+  it('latency delays responses but not test routes', async () => {
+    const app = createApp({ db: openDb(':memory:'), latencyMs: 600 });
+    let t = Date.now();
+    await app.request('/api/test/reset', { method: 'POST' });
+    expect(Date.now() - t).toBeLessThan(500);
+    t = Date.now();
+    await app.request('/api/me');
+    expect(Date.now() - t).toBeGreaterThanOrEqual(590);
+  });
+});

@@ -30,6 +30,10 @@ export const BUGS = {
     lesson: 'authn-authz',
     summary: 'GET /api/transfers/:id never checks the caller took part, so anyone signed in can read any transfer.',
   },
+  'balance-stale': {
+    lesson: 'traces',
+    summary: 'GET /api/me returns the balance from when you logged in, so the balance card never updates after a transfer.',
+  },
   'bad-json-500': {
     lesson: 'negative-tests',
     summary: 'POST /api/transfers with a body that is not JSON crashes with 500 instead of 400 BAD_JSON.',

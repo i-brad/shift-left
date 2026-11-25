@@ -5,3 +5,6 @@ export * from './board';
 export * from './coverage';
 export * from './pipeline';
 export * from './request';
+export * from './page';
+export * from './timing';
+export * from './suite';

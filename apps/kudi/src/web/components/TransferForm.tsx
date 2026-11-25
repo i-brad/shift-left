@@ -6,7 +6,10 @@ import { AmountInput, parseAmount } from './AmountInput';
 
 const AMOUNT_ERRORS = new Set(['AMOUNT_BELOW_MIN', 'AMOUNT_ABOVE_LIMIT', 'AMOUNT_INVALID', 'INSUFFICIENT_FUNDS']);
 
-export function TransferForm({ onSend }: { onSend: (to: string, amount: number, express: boolean) => Promise<{ fee?: number } | unknown> }) {
+/** Set KUDI_REDESIGN=1 to serve the redesigned form: new markup, ids, classes and order; same labels, roles and test ids. */
+const REDESIGN = (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.KUDI_REDESIGN === '1';
+
+export function TransferForm({ onSend, redesign = REDESIGN }: { onSend: (to: string, amount: number, express: boolean) => Promise<{ fee?: number } | unknown>; redesign?: boolean }) {
   const [to, setTo] = useState('');
   const [amount, setAmount] = useState('');
   const [express, setExpress] = useState(false);
@@ -38,32 +41,62 @@ export function TransferForm({ onSend }: { onSend: (to: string, amount: number, 
     }
   };
 
+  const recipient = (
+    <div className={redesign ? 'field field--recipient' : 'field'}>
+      <label htmlFor={redesign ? 'recipient-input' : 'to'}>Recipient email</label>
+      <input id={redesign ? 'recipient-input' : 'to'} name="to" type="email" autoComplete="off" value={to} onChange={(e) => setTo(e.target.value)} aria-invalid={!!toError} aria-describedby={toError ? 'to-error' : undefined} required />
+      {toError && (
+        <p id="to-error" className="field-error">
+          {toError}
+        </p>
+      )}
+    </div>
+  );
+  const amountField = <AmountInput value={amount} onChange={setAmount} error={amountError} />;
+  const expressRow = (
+    <label className="check-row">
+      <input type="checkbox" checked={express} onChange={(e) => setExpress(e.target.checked)} />
+      Express delivery
+    </label>
+  );
+  const submitButton = (
+    <Button type="submit" variant="primary" disabled={busy} data-testid="send-button">
+      {busy ? 'Sending…' : redesign ? 'Send money' : 'Send'}
+    </Button>
+  );
+  const done = sent && (
+    <p className="success" role="status">
+      {sent}
+    </p>
+  );
+
+  if (redesign)
+    return (
+      <form className="card send-panel" onSubmit={submit} aria-labelledby="send-title" data-version="2">
+        <div className="send-panel__head">
+          <h2 id="send-title">Send money</h2>
+        </div>
+        <div className="send-panel__body">
+          {amountField}
+          {recipient}
+          <div className="send-panel__row">
+            {expressRow}
+            {submitButton}
+          </div>
+        </div>
+        {done}
+      </form>
+    );
+
   return (
     <form className="card transfer" onSubmit={submit} aria-labelledby="send-title">
       <h2 id="send-title">Send money</h2>
       <p className="hint">₦100 to ₦500,000 per transfer. Fees: see SPEC.md.</p>
-      <div className="field">
-        <label htmlFor="to">Recipient email</label>
-        <input id="to" name="to" type="email" autoComplete="off" value={to} onChange={(e) => setTo(e.target.value)} aria-invalid={!!toError} aria-describedby={toError ? 'to-error' : undefined} required />
-        {toError && (
-          <p id="to-error" className="field-error">
-            {toError}
-          </p>
-        )}
-      </div>
-      <AmountInput value={amount} onChange={setAmount} error={amountError} />
-      <label className="check-row">
-        <input type="checkbox" checked={express} onChange={(e) => setExpress(e.target.checked)} />
-        Express delivery
-      </label>
-      <Button type="submit" variant="primary" disabled={busy}>
-        {busy ? 'Sending…' : 'Send'}
-      </Button>
-      {sent && (
-        <p className="success" role="status">
-          {sent}
-        </p>
-      )}
+      {recipient}
+      {amountField}
+      {expressRow}
+      {submitButton}
+      {done}
     </form>
   );
 }

@@ -26,7 +26,14 @@ export type GoalCheck =
   | { kind: 'statuses-seen'; statuses: number[] }
   | { kind: 'bug-found'; bug: import('@shift-left/sim').ApiBug }
   | { kind: 'assert-catches' }
-  | { kind: 'pipeline-target'; pipeline: string; maxEscaped?: number; maxCost?: number; maxSeconds?: number };
+  | { kind: 'pipeline-target'; pipeline: string; maxEscaped?: number; maxCost?: number; maxSeconds?: number }
+  /** Every element has a locator that still holds under these changes. */
+  | { kind: 'locators-hold'; changes: import('@shift-left/sim').PageChange[] }
+  | { kind: 'places-max'; max: number }
+  | { kind: 'trace-frame'; frame: string }
+  /** All 10 runs pass, without waiting more than `maxWaitSeconds` in total. */
+  | { kind: 'timing-target'; maxWaitSeconds?: number }
+  | { kind: 'suite-target'; suite: string; maxFalseFailures?: number; maxSeconds?: number; realBug?: boolean; noFlaky?: boolean; noHidden?: boolean };
 
 export type BoundaryScene = {
   kind: 'boundaries';
@@ -107,7 +114,34 @@ export type RequestScene = {
   rooms?: boolean;
 };
 
-export type SceneState = BoundaryScene | FeeScene | CardScene | BoardScene | CoverageScene | PipelineScene | RequestScene;
+export type PageScene = {
+  kind: 'page';
+  mode: 'locators' | 'trace';
+  /** Changes applied to the page. 'learner' = the learner toggles them. */
+  changes?: readonly import('@shift-left/sim').PageChange[] | 'learner';
+  /** Learner picks a locator per element. */
+  choose?: boolean;
+  /** Show N tests using the locators, with or without a page object. */
+  structure?: { tests: number; pageObject: boolean | 'learner' };
+};
+
+export type TimingScene = {
+  kind: 'timing';
+  /** Typical latency in ms. 'learner' = the learner turns the dial, starting at 800. */
+  latency: number | 'learner';
+  strategy: import('@shift-left/sim').WaitStrategy | 'learner';
+  sleepMs?: number;
+};
+
+export type SuiteScene = {
+  kind: 'suite';
+  suite: string;
+  options: Partial<import('@shift-left/sim').SuiteOptions>;
+  /** Options the learner can change. */
+  controls?: (keyof import('@shift-left/sim').SuiteOptions)[];
+};
+
+export type SceneState = BoundaryScene | FeeScene | CardScene | BoardScene | CoverageScene | PipelineScene | RequestScene | PageScene | TimingScene | SuiteScene;
 export type SceneKind = SceneState['kind'];
 
 export type Step = {
@@ -164,6 +198,8 @@ export type Lesson = {
   boards?: Record<string, import('@shift-left/sim').BoardDef>;
   /** Pipelines used by `pipeline` scenes, by key. */
   pipelines?: Record<string, import('@shift-left/sim').PipelineDef>;
+  /** Test suites used by `suite` scenes, by key. */
+  suites?: Record<string, import('@shift-left/sim').SuiteDef>;
   /** End-of-lesson questions. */
   check: CheckQuestion[];
   /** How to use this on a real product team tomorrow. */

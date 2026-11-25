@@ -22,8 +22,9 @@ The checklist for finishing the course. Work top to bottom; tick a lesson only w
 | `coverage` ✅ | Pick test inputs; 3D code paths light up; statement vs branch % | Statement and branch coverage |
 | `pipeline` ✅ | Place checks on a conveyor of stages; see where a bug is caught and what it costs | Test levels, Confirmation vs regression, PR checks, Reports, Secrets, Parallel runs |
 | `request` ✅ | Edit method, path, headers, body; see the response; toggle assertions | HTTP, Asserting responses, Authn vs authz, Negative tests, OWASP, Pact |
-| `timing` | Turn a latency dial; tests wait, sleep or retry on a timeline | Waiting, Flaky tests, Load testing (k6) |
-| `page` | Redesign a 3D page; locators hold or snap | Locators, Fixtures and isolation, Traces, Structure, Test data, Maestro |
+| `timing` ✅ | Turn a latency dial; tests wait, sleep or retry on a timeline | Waiting, Flaky tests, Load testing (k6) |
+| `suite` ✅ | Workers × time lanes; data strategy, order, waits, retries | Fixtures, Test data, Flaky tests, Parallel runs |
+| `page` ✅ | Redesign a 3D page; locators hold or snap | Locators, Fixtures and isolation, Traces, Structure, Test data, Maestro |
 
 ## Lessons
 
@@ -60,10 +61,10 @@ The checklist for finishing the course. Work top to bottom; tick a lesson only w
 ### Module 4 · Web automation
 | | Lesson | Scene | Kudi feature / bug | Exercise |
 | --- | --- | --- | --- | --- |
-| [ ] | Locators that last | page | `KUDI_REDESIGN` flag | 10 |
-| [ ] | Waiting, not sleeping | timing | `KUDI_LATENCY` | 11 |
-| [ ] | Fixtures and isolation | page | shared data | 12 |
-| [ ] | Debugging with traces | page | `ui-balance-stale` | 13 |
+| [x] | Locators that last | page | `KUDI_REDESIGN=1` | 07-web (one exercise for the module) |
+| [x] | Waiting, not sleeping | timing | `KUDI_LATENCY` | 07-web |
+| [x] | Fixtures and isolation | suite | shared seed data | 07-web |
+| [x] | Debugging with traces | page (trace) | `balance-stale` | 07-web |
 
 ### Module 5 · Framework
 | | Lesson | Scene | Exercise |

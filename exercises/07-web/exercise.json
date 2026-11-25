@@ -1,0 +1,8 @@
+{
+  "title": "07 · Web automation: locators, waits, fixtures, traces",
+  "lesson": "locators",
+  "bug": "balance-stale",
+  "web": true,
+  "env": { "KUDI_REDESIGN": "1", "KUDI_LATENCY": "1200" },
+  "ctfl": ["FL-6.1", "FL-6.2"]
+}

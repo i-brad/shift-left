@@ -37,10 +37,10 @@ export const course: CourseModule[] = [
   },
   {
     n: 4, title: 'Web automation', color: '#f0a76a', lessons: [
-      { id: 'locators', title: 'Locators that last', ctfl: ['FL-6.1', 'FL-6.2'], built: false },
-      { id: 'waiting', title: 'Waiting, not sleeping', built: false },
-      { id: 'fixtures', title: 'Fixtures and isolation', built: false },
-      { id: 'traces', title: 'Debugging with traces', built: false },
+      { id: 'locators', title: 'Locators that last', ctfl: ['FL-6.1', 'FL-6.2'], built: true },
+      { id: 'waiting', title: 'Waiting, not sleeping', built: true },
+      { id: 'fixtures', title: 'Fixtures and isolation', built: true },
+      { id: 'traces', title: 'Debugging with traces', built: true },
     ],
   },
   {

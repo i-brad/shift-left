@@ -9,8 +9,17 @@ import { checkPassword, type Db, type User } from './db';
 
 const COOKIE = 'kudi_session';
 
-export function createApp({ db, bugs = noBugs, testRoutes = true }: { db: Db; bugs?: Bugs; testRoutes?: boolean }) {
+export function createApp({ db, bugs = noBugs, testRoutes = true, latencyMs = 0 }: { db: Db; bugs?: Bugs; testRoutes?: boolean; latencyMs?: number }) {
   const app = new Hono<{ Variables: { user: User } }>().basePath('/api');
+  /** Balance at login, per session: only used by the balance-stale bug. */
+  const balanceAtLogin = new Map<string, number>();
+
+  // KUDI_LATENCY: a slow network, for practising waits. Test routes stay fast.
+  if (latencyMs > 0)
+    app.use('*', async (c, next) => {
+      if (!c.req.path.startsWith('/api/test/')) await new Promise((r) => setTimeout(r, latencyMs));
+      await next();
+    });
 
   const readJson = async (c: Context) => {
     try {
@@ -29,7 +38,9 @@ export function createApp({ db, bugs = noBugs, testRoutes = true }: { db: Db; bu
     if (!user || typeof body?.password !== 'string' || !checkPassword(body.password, user.password)) {
       return c.json({ error: 'INVALID_CREDENTIALS' }, 401);
     }
-    setCookie(c, COOKIE, db.createSession(user.id), { httpOnly: true, sameSite: 'Lax', path: '/' });
+    const token = db.createSession(user.id);
+    balanceAtLogin.set(token, user.balance);
+    setCookie(c, COOKIE, token, { httpOnly: true, sameSite: 'Lax', path: '/' });
     return c.json({ name: user.name, email: user.email }, 201);
   });
 
@@ -61,7 +72,8 @@ export function createApp({ db, bugs = noBugs, testRoutes = true }: { db: Db; bu
 
   app.get('/me', (c) => {
     const { name, email, balance, tier } = c.get('user');
-    return c.json({ name, email, balance, tier });
+    const stale = bugs.on('balance-stale') ? balanceAtLogin.get(getCookie(c, COOKIE) ?? '') : undefined;
+    return c.json({ name, email, balance: stale ?? balance, tier });
   });
 
   app.get('/transfers', (c) => {
